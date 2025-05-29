@@ -44,15 +44,6 @@ button[data-testid="stSidebarNavToggler"] {
     z-index: 100;
 }
 
-/* Texto debajo de la flecha */
-.custom-sidebar-text {
-    position: absolute;
-    top: 40px;
-    left: 10px;
-    font-size: 1rem;
-    color: #f63366;
-}
-
 /* Nuevas reglas para móvil */
 @media(max-width:768px){
   .pagination-mobile{display:flex;justify-content:center;gap:16px;margin:20px 0;}
@@ -268,6 +259,21 @@ document.addEventListener('streamlit_page_change', function(event) {
         console.warn("Mobile pagination button couldn't find corresponding Streamlit button for position: " + position + ", direction: " + direction);
     }
 });
+
+// Añadir el texto "Abrir Carrito" debajo de la flecha
+document.addEventListener('DOMContentLoaded', (event) => {
+    const sidebarButton = document.querySelector('button[data-testid="stSidebarNavToggler"]');
+    if (sidebarButton) {
+        const textElement = document.createElement('div');
+        textElement.textContent = 'Abrir Carrito';
+        textElement.style.position = 'relative';
+        textElement.style.top = '40px';
+        textElement.style.left = '10px';
+        textElement.style.fontSize = '1rem';
+        textElement.style.color = '#f63366';
+        sidebarButton.parentNode.insertBefore(textElement, sidebarButton.nextSibling);
+    }
+});
 </script>
 """,
     unsafe_allow_html=True,
@@ -381,14 +387,6 @@ qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values(
 fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Carrito"
 st.markdown(
     f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
-    unsafe_allow_html=True,
-)
-
-# Añadir el texto "Abrir Carrito" debajo de la flecha
-st.markdown(
-    """
-<div class="custom-sidebar-text">Abrir Carrito</div>
-""",
     unsafe_allow_html=True,
 )
 
