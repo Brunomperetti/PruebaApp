@@ -183,19 +183,27 @@ else:
 # ------------------------------------------------------------------ #
 #  Paginación (versión simplificada)
 # ------------------------------------------------------------------ #
-ITEMS_PER_PAGE = 10 if st.runtime.scriptrunner.is_running_with_streamlit and st.runtime.scriptrunner.script_run_context.get_script_run_ctx().client.is_mobile else 45
+# Elegir cuántos ítems mostrar por página desde la barra lateral
+ITEMS_PER_PAGE = st.sidebar.selectbox("Productos por página", [10, 15, 30, 45], index=1)
+
+# Calcular total de páginas
 total_pages = max(1, math.ceil(len(df) / ITEMS_PER_PAGE))
+
+# Guardar el estado de la página actual
 page_key = f"current_page_{linea}"
 current_page = min(st.session_state.get(page_key, 1), total_pages)
 
+# Función para cambiar de página
 def change_page(n: int):
     st.session_state[page_key] = n
 
+# Botones de navegación
 col1, col2, col3 = st.columns([1, 6, 1])
 with col1:
     st.button("◀", on_click=change_page, args=(max(1, current_page - 1),), disabled=(current_page <= 1))
 with col3:
     st.button("▶", on_click=change_page, args=(min(total_pages, current_page + 1),), disabled=(current_page >= total_pages))
+
 
 # Mostrar productos actuales
 start = (current_page - 1) * ITEMS_PER_PAGE
