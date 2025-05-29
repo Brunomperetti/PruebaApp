@@ -9,7 +9,7 @@ from io import BytesIO
 from PIL import Image
 
 st.set_page_config(
-    page_title="Catálogo Millex con Carrito",
+    page_title="Catálogo Millex con Carrito y Cantidad",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -72,11 +72,9 @@ FILE_IDS = {
     "Línea Bombas de Acuario": "1DiXE5InuxMjZio6HD1nkwtQZe8vaGcSh",
 }
 
-# Inicializar carrito si no existe
 if "carrito" not in st.session_state:
     st.session_state["carrito"] = {}
 
-# Sidebar: mostrar carrito con resumen y total
 st.sidebar.title("🛒 Carrito de Compras")
 carrito = st.session_state["carrito"]
 
@@ -91,7 +89,6 @@ if carrito:
 else:
     st.sidebar.write("El carrito está vacío")
 
-# Selección de línea y buscador
 col_linea, col_search = st.columns([2.2, 3])
 with col_linea:
     linea = st.selectbox(
@@ -133,9 +130,9 @@ df_pagina = df.iloc[start_idx:end_idx]
 def cambiar_pagina(nueva_pagina):
     st.session_state["pagina_actual"] = nueva_pagina
 
-# Mostrar productos con botón de agregar al carrito
+# Vamos a usar formularios para que cada producto tenga cantidad y botón independiente
 for idx, row in df_pagina.iterrows():
-    cols = st.columns([1, 5, 2, 1])
+    cols = st.columns([1, 5, 2, 2])
     with cols[0]:
         if row["img_bytes"]:
             try:
@@ -151,18 +148,21 @@ for idx, row in df_pagina.iterrows():
     with cols[2]:
         st.markdown(f"${row['precio']:,.2f}")
     with cols[3]:
-        btn_key = f"add_{row['codigo']}"
-        if st.button("➕ Agregar", key=btn_key):
-            # Agregar al carrito
-            if row['codigo'] in carrito:
-                carrito[row['codigo']]["cantidad"] += 1
-            else:
-                carrito[row['codigo']] = {
-                    "detalle": row["detalle"],
-                    "precio": row["precio"],
-                    "cantidad": 1,
-                }
-            st.experimental_rerun()  # para refrescar y mostrar cambios en carrito
+        form_key = f"form_{row['codigo']}"
+        with st.form(form_key, clear_on_submit=True):
+            cantidad = st.number_input("Cantidad", min_value=1, step=1, key=f"cant_{row['codigo']}")
+            agregar = st.form_submit_button("Agregar al carrito")
+            if agregar:
+                cod = row['codigo']
+                if cod in carrito:
+                    carrito[cod]["cantidad"] += cantidad
+                else:
+                    carrito[cod] = {
+                        "detalle": row["detalle"],
+                        "precio": row["precio"],
+                        "cantidad": cantidad,
+                    }
+                st.success(f"Agregaste {cantidad} x {row['detalle']} al carrito")
 
 col_ant, col_info, col_sig = st.columns([1, 3, 1])
 with col_ant:
@@ -175,5 +175,6 @@ with col_sig:
         cambiar_pagina(pagina_actual + 1)
 
 st.session_state["pagina_actual"] = pagina_actual
+
 
 
