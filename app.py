@@ -5,23 +5,21 @@ from pathlib import Path
 from PIL import Image
 import io, unicodedata, tempfile, requests, math
 
-# Configuración general
 st.set_page_config(
     page_title="Catálogo Millex",
     page_icon="🐾",
     layout="wide",
     initial_sidebar_state="collapsed",
-    menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
-# CSS para ocultar menús y estilos botón carrito
+# --- CSS para ocultar menú y poner botón carrito a la izquierda ---
 st.markdown("""
 <style>
 #MainMenu, footer, header {visibility: hidden;}
-.carrito-top-right {
+.carrito-top-left {
     position: fixed;
     top: 10px;
-    right: 10px;
+    left: 10px;
     background: #f63366;
     color: white;
     border: none;
@@ -30,7 +28,7 @@ st.markdown("""
     font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
-    z-index: 1000;
+    z-index: 9999;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -78,11 +76,10 @@ FILE_IDS = {
     "Línea Bombas de Acuario": "1DiXE5InuxMjZio6HD1nkwtQZe8vaGcSh",
 }
 
-col_linea, col_search = st.columns([2.2, 3])
-with col_linea:
-    linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()), label_visibility="collapsed", placeholder="Elegí la línea de productos:")
-with col_search:
-    search_term = st.text_input("🔍 Buscar (código o descripción)…", placeholder="🔍 Buscar (código o descripción)…", label_visibility="collapsed").strip().lower()
+# **DESPLEGABLE de línea** que pediste que quede igual
+linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()), label_visibility="visible")
+
+search_term = st.text_input("🔍 Buscar (código o descripción)…").strip().lower()
 search_norm = quitar_acentos(search_term)
 
 df_base = load_products(str(fetch_excel(FILE_IDS[linea])))
@@ -105,7 +102,7 @@ current_page = min(st.session_state.get(page_key, 1), total_pages)
 def change_page(new_page_val: int):
     st.session_state[page_key] = new_page_val
 
-# Paginación simple con botones Streamlit (sin JS)
+# Paginación simple con botones streamlit
 cols_pager = st.columns([1, 1, 1])
 with cols_pager[0]:
     if st.button("◀ Anterior", key="prev_page", disabled=current_page == 1):
@@ -130,16 +127,16 @@ elif paginated_df.empty and search_term:
 elif paginated_df.empty:
     st.info("No hay productos para mostrar en esta línea.")
 
+# Mostrar productos (3 columnas)
 for i in range(0, len(paginated_df), 3):
     cols = st.columns(3)
     for j in range(3):
         if i + j >= len(paginated_df):
             with cols[j]:
-                st.container()
+                st.empty()
             continue
         prod = paginated_df.iloc[i + j]
         with cols[j]:
-            st.markdown('<div class="product-card">', unsafe_allow_html=True)
             if pd.notna(prod.img_bytes) and len(prod.img_bytes) > 0:
                 try:
                     st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True, output_format='PNG')
@@ -148,45 +145,42 @@ for i in range(0, len(paginated_df), 3):
             else:
                 st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
 
-            st.markdown(f'<div class="product-title">{prod.detalle}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="product-code">Código: {prod.codigo}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
+            st.markdown(f"**{prod.detalle}**")
+            st.markdown(f"Código: {prod.codigo}")
+            st.markdown(f"Precio: ${prod.precio:,.2f}")
 
             qty_key = f"qty_{linea}_{prod.codigo}"
             cart = st.session_state.setdefault("cart", {})
-            current_qty_in_cart = cart.get(str(prod.codigo), {}).get("qty", 0)
+            current_qty = cart.get(str(prod.codigo), {}).get("qty", 0)
 
             qty = st.number_input("Cantidad", min_value=0, step=1,
                                   key=qty_key,
-                                  value=current_qty_in_cart)
+                                  value=current_qty)
 
-            if qty != current_qty_in_cart:
+            if qty != current_qty:
                 if qty > 0:
                     cart[str(prod.codigo)] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty, "linea": linea}
                 elif str(prod.codigo) in cart:
                     del cart[str(prod.codigo)]
                 st.experimental_rerun()
 
-            st.markdown("</div>", unsafe_allow_html=True)
-
-# Botón carrito (streamlit button que controla mostrar sidebar)
+# --- Botón carrito a la izquierda ---
 if "show_cart" not in st.session_state:
     st.session_state["show_cart"] = False
 
 def toggle_cart():
     st.session_state["show_cart"] = not st.session_state["show_cart"]
 
-qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
+qty_total = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
 
-st.markdown(f'''
-<button class="carrito-top-right" onclick="window.parent.postMessage({{func:'streamlit:setComponentValue', args: ['toggle_cart'] }}, '*')">
-    🛒 {qty_total_fab}
-</button>
-''', unsafe_allow_html=True)
+# Botón con streamlit (sin JS) para togglear carrito
+if st.button(f"🛒 {qty_total} Carrito", key="boton_carrito"):
+    toggle_cart()
+    st.experimental_rerun()
 
 if st.session_state["show_cart"]:
     with st.sidebar:
-        st.title("🛒 Carrito de Compras")
+        st.header("🛒 Carrito de Compras")
         if not st.session_state.get("cart"):
             st.info("Tu carrito está vacío.")
         else:
@@ -195,7 +189,6 @@ if st.session_state["show_cart"]:
                 st.write(f"{item['detalle']} x {item['qty']} — ${item['precio']*item['qty']:.2f}")
                 total += item['precio'] * item['qty']
             st.markdown(f"### Total: ${total:,.2f}")
-
         if st.button("Vaciar carrito"):
             st.session_state["cart"] = {}
             st.experimental_rerun()
