@@ -29,27 +29,40 @@ div[class^="viewerBadge_container"],
 /* Ajuste top padding */
 .block-container {padding-top:1rem;}
 
-/* Ocultar la flecha original y reemplazarla con un botón personalizado */
+/* Personalizar el botón de la barra lateral */
 button[data-testid="stSidebarNavToggler"] {
-    visibility: hidden;
-    position: absolute;
-}
-
-button[data-testid="stSidebarNavToggler"]::after {
-    content: "Abrir Carrito";
-    visibility: visible;
     position: relative;
     background: #f63366;
     color: white;
     border: none;
     height: 3rem;
-    width: 9rem;
+    width: 10rem;
     border-radius: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1rem;
     cursor: pointer;
+    z-index: 100;
+}
+
+button[data-testid="stSidebarNavToggler"]::before {
+    content: "Abrir Carrito";
+    position: relative;
+    margin-right: 0.5rem;
+}
+
+/* Ocultar la flecha original y reemplazarla con una personalizada */
+button[data-testid="stSidebarNavToggler"] > div {
+    visibility: hidden;
+}
+
+button[data-testid="stSidebarNavToggler"]::after {
+    content: "▶";
+    visibility: visible;
+    position: relative;
+    font-size: 1rem;
+    margin-left: 0.5rem;
 }
 
 /* Nuevas reglas para móvil */
@@ -402,4 +415,5 @@ window.addEventListener("toggleSidebar", () => {
 """,
     unsafe_allow_html=True,
 )
+
 
