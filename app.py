@@ -53,6 +53,24 @@ button[data-testid="stSidebarNavToggler"] > div {
     display: none !important;
 }
 
+/* Estilos para el botón del sidebar con texto integrado */
+button[data-testid="stSidebarNavToggler"] {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    background: transparent !important;
+    border: none !important;
+    color: #f63366 !important;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 8px 12px !important;
+}
+
+/* Posicionamiento del texto "Abrir carrito" */
+.sidebar-toggle-text {
+    margin-left: 4px;
+}
+
 /* Nuevas reglas para móvil */
 @media(max-width:768px){
   .pagination-mobile{display:flex;justify-content:center;gap:16px;margin:20px 0;}
@@ -76,31 +94,53 @@ button[data-testid="stSidebarNavToggler"] > div {
 st.markdown(
     """
 <script>
+// Función para añadir el texto al botón
+function addCartText() {
+    const sidebarBtn = window.parent.document.querySelector('button[data-testid="stSidebarNavToggler"]');
+
+    if(sidebarBtn && !sidebarBtn.querySelector('.sidebar-toggle-text')) {
+        const textSpan = document.createElement('span');
+        textSpan.className = 'sidebar-toggle-text';
+        textSpan.textContent = 'Abrir carrito';
+        sidebarBtn.appendChild(textSpan);
+    }
+}
+
+// Ejecutar al cargar y con retardo por si Streamlit tarda en renderizar
+document.addEventListener('DOMContentLoaded', addCartText);
+setTimeout(addCartText, 1000);
+
+// Observar cambios en el DOM por si Streamlit redibuja
+const observer = new MutationObserver(addCartText);
+observer.observe(document.body, { childList: true, subtree: true });
+</script>
+
+<script>
 // Esperar a que el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
     // Seleccionar el botón del sidebar
     const sidebarBtn = window.parent.document.querySelector('button[data-testid="stSidebarNavToggler"]');
-    
+
     if(sidebarBtn) {
         // Eliminar el contenido existente (flecha)
         sidebarBtn.innerHTML = '';
-        
+
         // Crear nuevo contenido
         const btnContent = document.createElement('div');
         btnContent.style.display = 'flex';
         btnContent.style.alignItems = 'center';
         btnContent.style.gap = '8px';
-        
+
         // Agregar texto "Ver Carrito"
         const textSpan = document.createElement('span');
         textSpan.textContent = 'Ver Carrito';
         btnContent.appendChild(textSpan);
-        
+
         // Agregar icono de carrito opcional
         const cartIcon = document.createElement('span');
         cartIcon.textContent = '🛒';
         btnContent.insertBefore(cartIcon, textSpan);
-        
+
         // Aplicar los cambios
         sidebarBtn.appendChild(btnContent);
     }
@@ -108,7 +148,9 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 """,
     unsafe_allow_html=True,
-) # Utilidades
+)
+
+# Utilidades
 def quitar_acentos(texto: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFKD", str(texto))
@@ -395,8 +437,4 @@ window.addEventListener("toggleSidebar", () => {
 """,
     unsafe_allow_html=True,
 )
-
-
-
-
 
