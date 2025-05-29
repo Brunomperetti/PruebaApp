@@ -8,12 +8,10 @@ import requests
 from io import BytesIO
 from PIL import Image
 
-# Configuración general
 st.set_page_config(
-    page_title="Catálogo Millex",
-    page_icon="🐾",
+    page_title="Catálogo Millex con Carrito",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 def quitar_acentos(texto: str) -> str:
@@ -35,7 +33,6 @@ def fetch_excel(file_id: str) -> Path:
 def load_products(xls_path: str) -> pd.DataFrame:
     wb = load_workbook(xls_path, data_only=True)
     ws = wb.active
-    # Mapear imágenes por fila (si las hay)
     img_map = {}
     for img in ws._images:
         if hasattr(img.anchor, '_from'):
@@ -68,7 +65,6 @@ def load_products(xls_path: str) -> pd.DataFrame:
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
 
-# IDs de Google Sheets (líneas de productos)
 FILE_IDS = {
     "Línea Perros": "1EK_NlWT-eS5_7P2kWwBHsui2tKu5t26U",
     "Línea Pájaros y Roedores": "1n10EZZvZq-3M2t3rrtmvW7gfeB40VJ7F",
@@ -76,28 +72,43 @@ FILE_IDS = {
     "Línea Bombas de Acuario": "1DiXE5InuxMjZio6HD1nkwtQZe8vaGcSh",
 }
 
-# --- Interfaz: desplegable y buscador ---
+# Inicializar carrito si no existe
+if "carrito" not in st.session_state:
+    st.session_state["carrito"] = {}
+
+# Sidebar: mostrar carrito con resumen y total
+st.sidebar.title("🛒 Carrito de Compras")
+carrito = st.session_state["carrito"]
+
+if carrito:
+    total = 0
+    for cod, item in carrito.items():
+        st.sidebar.write(f"{item['detalle']} x {item['cantidad']} = ${item['precio']*item['cantidad']:.2f}")
+        total += item['precio'] * item['cantidad']
+    st.sidebar.markdown(f"**Total: ${total:,.2f}**")
+    if st.sidebar.button("Vaciar carrito"):
+        st.session_state["carrito"] = {}
+else:
+    st.sidebar.write("El carrito está vacío")
+
+# Selección de línea y buscador
 col_linea, col_search = st.columns([2.2, 3])
 with col_linea:
     linea = st.selectbox(
         "Elegí la línea de productos:",
         list(FILE_IDS.keys()),
         index=0,
-        label_visibility="visible",
     )
 with col_search:
     search_term = st.text_input(
         "🔍 Buscar (código o descripción)…",
-        placeholder="🔍 Buscar (código o descripción)…",
-        label_visibility="visible",
+        placeholder="Buscar productos...",
     ).strip().lower()
 
 search_norm = quitar_acentos(search_term)
 
-# Cargar productos
 df_base = load_products(str(fetch_excel(FILE_IDS[linea])))
 
-# Filtrar si hay búsqueda
 if search_term:
     df = df_base[
         df_base["codigo_norm"].str.contains(search_norm, na=False) |
@@ -106,16 +117,10 @@ if search_term:
 else:
     df = df_base.copy()
 
-# Paginación
 items_por_pagina = 20
 total_items = len(df)
 total_paginas = (total_items // items_por_pagina) + (1 if total_items % items_por_pagina > 0 else 0)
-
 pagina_actual = st.session_state.get("pagina_actual", 1)
-
-def cambiar_pagina(nueva_pagina):
-    st.session_state["pagina_actual"] = nueva_pagina
-
 if pagina_actual < 1:
     pagina_actual = 1
 elif pagina_actual > total_paginas and total_paginas > 0:
@@ -125,9 +130,12 @@ start_idx = (pagina_actual - 1) * items_por_pagina
 end_idx = start_idx + items_por_pagina
 df_pagina = df.iloc[start_idx:end_idx]
 
-# Mostrar tabla con productos
+def cambiar_pagina(nueva_pagina):
+    st.session_state["pagina_actual"] = nueva_pagina
+
+# Mostrar productos con botón de agregar al carrito
 for idx, row in df_pagina.iterrows():
-    cols = st.columns([1, 5, 2])
+    cols = st.columns([1, 5, 2, 1])
     with cols[0]:
         if row["img_bytes"]:
             try:
@@ -142,8 +150,20 @@ for idx, row in df_pagina.iterrows():
         st.write(row["detalle"])
     with cols[2]:
         st.markdown(f"${row['precio']:,.2f}")
+    with cols[3]:
+        btn_key = f"add_{row['codigo']}"
+        if st.button("➕ Agregar", key=btn_key):
+            # Agregar al carrito
+            if row['codigo'] in carrito:
+                carrito[row['codigo']]["cantidad"] += 1
+            else:
+                carrito[row['codigo']] = {
+                    "detalle": row["detalle"],
+                    "precio": row["precio"],
+                    "cantidad": 1,
+                }
+            st.experimental_rerun()  # para refrescar y mostrar cambios en carrito
 
-# Controles de paginación
 col_ant, col_info, col_sig = st.columns([1, 3, 1])
 with col_ant:
     if st.button("⬅️ Anterior") and pagina_actual > 1:
@@ -154,7 +174,6 @@ with col_sig:
     if st.button("Siguiente ➡️") and pagina_actual < total_paginas:
         cambiar_pagina(pagina_actual + 1)
 
-# Guardar página actual en session_state para mantener la paginación
 st.session_state["pagina_actual"] = pagina_actual
 
 
