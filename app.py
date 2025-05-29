@@ -29,35 +29,23 @@ div[class^="viewerBadge_container"],
 /* Ajuste top padding */
 .block-container {padding-top:1rem;}
 
-/* Personalizar el botón de la barra lateral */
-button[data-testid="stSidebarNavToggler"] {
-    position: relative;
-    background: transparent;
+/* Estilo para el botón del carrito en la esquina superior derecha */
+.carrito-top-right {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #f63366;
+    color: white;
     border: none;
-    height: auto;
-    width: auto;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 1000;
     display: flex;
-    flex-direction: row;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    z-index: 100;
-    padding: 8px 12px;
-    color: #f63366 !important;
-    font-weight: 600;
-    font-size: 1rem;
-}
-
-/* Estilo para la flecha más grande */
-button[data-testid="stSidebarNavToggler"]::after {
-    content: "▶";
-    font-size: 1.5rem;
-    margin-left: 8px;
-}
-
-/* Posicionamiento del texto "Carrito" */
-.sidebar-toggle-text {
-    margin-left: 8px;
 }
 
 /* Nuevas reglas para móvil */
@@ -73,34 +61,6 @@ button[data-testid="stSidebarNavToggler"]::after {
   .desktop-cart-button-container {display:none!important;}
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
-
-# JavaScript para cambiar el texto del botón
-st.markdown(
-    """
-<script>
-// Función para añadir el texto al botón
-function addCartText() {
-    const sidebarBtn = window.parent.document.querySelector('button[data-testid="stSidebarNavToggler"]');
-
-    if(sidebarBtn && !sidebarBtn.querySelector('.sidebar-toggle-text')) {
-        const textSpan = document.createElement('span');
-        textSpan.className = 'sidebar-toggle-text';
-        textSpan.textContent = 'Carrito';
-        sidebarBtn.appendChild(textSpan);
-    }
-}
-
-// Ejecutar al cargar y con retardo por si Streamlit tarda en renderizar
-document.addEventListener('DOMContentLoaded', addCartText);
-setTimeout(addCartText, 1000);
-
-// Observar cambios en el DOM por si Streamlit redibuja
-const observer = new MutationObserver(addCartText);
-observer.observe(document.body, { childList: true, subtree: true });
-</script>
 """,
     unsafe_allow_html=True,
 )
@@ -321,6 +281,14 @@ for i in range(0, len(paginated_df), 3):
 if total_pages > 1:
     pager("bottom")
 
+# Botón de carrito en la esquina superior derecha
+qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
+fab_label = f"🛒 Carrito ({qty_total_fab})" if qty_total_fab else "🛒 Carrito"
+st.markdown(
+    f'<button class="carrito-top-right" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</button>',
+    unsafe_allow_html=True,
+)
+
 # Sidebar ➜ Carrito
 with st.sidebar:
     st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
@@ -365,13 +333,6 @@ with st.sidebar:
             st.rerun()
     else:
         st.write("Todavía no agregaste productos.")
-
-qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
-fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Carrito"
-st.markdown(
-    f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
-    unsafe_allow_html=True,
-)
 
 st.markdown(
     """
