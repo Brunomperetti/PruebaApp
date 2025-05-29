@@ -354,3 +354,4 @@ window.addEventListener("toggleSidebar", () => {
     unsafe_allow_html=True,
 )
 
+
