@@ -271,30 +271,44 @@ def pager(position: str):
 
 # JS para manejar los eventos de los botones de paginación móvil (HTML)
 st.markdown(
-    f"""
+    """
 <script>
-document.addEventListener('streamlit_page_change', function(event) {{
-    const {{ page, position, direction }} = event.detail;
+document.addEventListener('streamlit_page_change', function(event) {
+    const { page, position, direction } = event.detail;
     let buttonToClick;
 
-    if (direction === 'prev') {{
+    if (direction === 'prev') {
         buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("◀ Anterior")')[0];
-        if (!buttonToClick) {{
-            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*=\'{position}_prev_desktop\']')[0];
-        }}
-    }} else if (direction === 'next') {{
+        if (!buttonToClick) {
+            const buttons = window.parent.document.querySelectorAll('button[data-testid="stButton"]');
+            for (let i = 0; i < buttons.length; i++) {
+                const keyAttr = buttons[i].getAttribute('key');
+                if (keyAttr && keyAttr.includes(position + '_prev_desktop')) {
+                    buttonToClick = buttons[i];
+                    break;
+                }
+            }
+        }
+    } else if (direction === 'next') {
         buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("Siguiente ▶")')[0];
-        if (!buttonToClick) {{
-            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*=\'{position}_next_desktop\']')[0];
-        }}
-    }}
+        if (!buttonToClick) {
+            const buttons = window.parent.document.querySelectorAll('button[data-testid="stButton"]');
+            for (let i = 0; i < buttons.length; i++) {
+                const keyAttr = buttons[i].getAttribute('key');
+                if (keyAttr && keyAttr.includes(position + '_next_desktop')) {
+                    buttonToClick = buttons[i];
+                    break;
+                }
+            }
+        }
+    }
 
-    if (buttonToClick) {{
+    if (buttonToClick) {
         buttonToClick.click();
-    }} else {{
+    } else {
         console.warn("Mobile pagination button couldn't find corresponding Streamlit button for position: " + position + ", direction: " + direction);
-    }}
-}});
+    }
+});
 </script>
 """,
     unsafe_allow_html=True,
