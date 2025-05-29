@@ -217,13 +217,13 @@ with st.sidebar:
     st.markdown("<div class='sidebar-title'>🛒 Tu Carrito</div>", unsafe_allow_html=True)
     total = 0
     for codigo, cantidad in st.session_state['carrito'].items():
-        producto = df_base[df_base['codigo'] == codigo].iloc[0]
-        subtotal = producto['precio'] * cantidad
-        total += subtotal
-        st.markdown(f"<div class='cart-item'><strong>{codigo}</strong><br>{producto['detalle']}<br>Cant: {cantidad} — <strong>${subtotal:.2f}</strong></div>", unsafe_allow_html=True)
+        producto = df_base[df_base['codigo'] == str(codigo)]
+        if not producto.empty:
+            nombre = producto["detalle"].values[0]
+            precio = producto["precio"].values[0]
+            subtotal = cantidad * precio
+            total += subtotal
+            st.markdown(f"<div class='cart-item'>{cantidad} x <b>{codigo}</b> — {nombre} (${precio:.2f} c/u) = <b>${subtotal:.2f}</b></div>", unsafe_allow_html=True)
     st.markdown(f"<div class='cart-total'>Total: ${total:.2f}</div>", unsafe_allow_html=True)
-    if total > 0:
-        st.link_button("📞 Pedir por WhatsApp", f"https://wa.me/?text={urllib.parse.quote('Hola, quiero pedir estos productos: ' + ', '.join(f'{k} x{v}' for k,v in st.session_state['carrito'].items()))}", type="primary", use_container_width=True)
-        if st.button("Vaciar carrito"):
-            st.session_state['carrito'].clear()
+
 
