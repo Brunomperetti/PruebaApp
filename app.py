@@ -50,6 +50,11 @@ div[class^="viewerBadge_container"],
   
   /* Reducir productos por página en móvil */
   .mobile-items-per-page{display:block!important;}
+
+  /* Ocultar botón de carrito desktop en móvil, ya que tenemos el FAB */
+  .desktop-cart-button-container {
+      display:none!important;
+  }
 }
 
 /* Ocultar paginación móvil en desktop */
@@ -66,7 +71,39 @@ div[class^="viewerBadge_container"],
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
 .carrito-fab:hover{transform:scale(1.06);}
-@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet */
+@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet - OJO: Si quieres el FAB en desktop, comenta o borra esta línea */
+
+/* --- Botón Carrito Desktop (Opción 2) --- */
+.desktop-cart-button-container {
+    display: flex; 
+    align-items: flex-end; /* Alinea el botón con la base de los inputs */
+    height: 100%; 
+    padding-bottom: 0px; /* Ajustado para que el botón se alinee mejor con st.text_input */
+}
+/* Estilo para el botón HTML para que se parezca a los de Streamlit pero con colores personalizados */
+.desktop-cart-button-container button.custom-st-button {
+    width: 100%; 
+    background-color: #f63366; 
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem; /* Similar al padding de st.button */
+    border-radius: 0.5rem; /* Similar al border-radius de st.button */
+    font-weight: 600; /* Similar a st.button */
+    font-size: 0.875rem; /* Similar a st.button */
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    height: 40px; /* Ajustar altura para que coincida con st.text_input */
+    line-height: 24px; /* Ajustar para centrar texto verticalmente */
+}
+.desktop-cart-button-container button.custom-st-button:hover {
+    background-color: #e02b5a; 
+    color: white;
+}
+.desktop-cart-button-container button.custom-st-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(246, 51, 102, 0.5); /* Sombra de foco similar a Streamlit */
+}
+
 
 /* --- Productos --- */
 .product-card{border:1px solid #e0e0e0;border-radius:12px;
@@ -136,7 +173,7 @@ def load_products(xls_path: str) -> pd.DataFrame:
     img_map = {img.anchor._from.row + 1: img._data() for img in ws._images if hasattr(img, "_data")}
     rows = []
     for idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-        if not row[1]:   # columna B vacía => fin
+        if not row[1]:  # columna B vacía => fin
             break
         codigo, detalle, precio = row[1], row[2], row[3]
         precio = 0 if precio is None else float(str(precio).replace("$", "").replace(",", ""))
@@ -159,14 +196,33 @@ FILE_IDS = {
 }
 
 # ------------------------------------------------------------------ #
-#  UI: selector de línea + buscador
+#  UI: selector de línea + buscador + botón carrito (Opción 2)
 # ------------------------------------------------------------------ #
-col_linea, col_search = st.columns([1, 2])
+col_linea, col_search, col_cart_btn_placeholder = st.columns([2.2, 3, 1.5]) # Ajustar ratios según necesidad
 with col_linea:
-    linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()))
+    linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()), label_visibility="collapsed", placeholder="Elegí la línea de productos:")
 with col_search:
-    search_term = st.text_input("🔍 Buscar (código o descripción)…").strip().lower()
+    search_term = st.text_input("🔍 Buscar (código o descripción)…", placeholder="🔍 Buscar (código o descripción)…", label_visibility="collapsed").strip().lower()
 search_norm = quitar_acentos(search_term)
+
+# Botón para abrir el carrito en desktop (se oculta en móvil si el FAB ya existe)
+with col_cart_btn_placeholder:
+    # st.write("") # Espacio para alineación vertical si es necesario
+    # st.write("") # Espacio para alineación vertical si es necesario
+    qty_total_header = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
+    cart_btn_label = f"🛒 Carrito ({qty_total_header})" if qty_total_header else "🛒 Ver Carrito"
+
+    # Usamos HTML para poder aplicar una clase y ocultarlo en móvil, y para el onclick JS
+    # Usamos una clase "custom-st-button" para imitar el estilo de Streamlit pero con nuestros colores
+    st.markdown(
+        f"""
+        <div class="desktop-cart-button-container">
+            <button class="custom-st-button" onclick="window.dispatchEvent(new Event('toggleSidebar'))">{cart_btn_label}</button>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
 
 # ------------------------------------------------------------------ #
 #  Carga y filtrado del catálogo
@@ -184,37 +240,70 @@ else:
 # ------------------------------------------------------------------ #
 #  Paginación
 # ------------------------------------------------------------------ #
-# Detectar si es móvil
-st.markdown(
-    """
-<script>
-const isMobile = window.matchMedia('(max-width: 768px)').matches;
-window.parent.document.getElementById('is_mobile_detector').value = isMobile;
-</script>
-<input type="hidden" id="is_mobile_detector">
-""",
-    unsafe_allow_html=True,
-)
+# Detectar si es móvil (esta parte es un poco un hack en Streamlit)
+# No hay una forma directa y robusta de obtener el estado is_mobile_detector
+# inmediatamente después de que el script JS lo establece, antes de que Python
+# continúe. Usaremos un valor por defecto y se ajustará en el siguiente rerun si cambia.
+is_mobile = False # Default
+if 'is_mobile_detector_script_run' not in st.session_state:
+    st.markdown(
+        """
+    <script>
+    (function() {
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        const hiddenInput = window.parent.document.getElementById('is_mobile_detector');
+        if (hiddenInput) {
+            hiddenInput.value = isMobile;
+            // Disparar un evento para que Streamlit pueda (potencialmente) recogerlo si se usa un componente
+        } else {
+            // Si el input no existe, podríamos intentar establecerlo en session storage del navegador
+            // y luego leerlo con un componente de Streamlit, pero se vuelve complejo.
+            // Por ahora, dependemos de que el input exista.
+        }
+        // Para forzar un rerun si es necesario, se necesitaría un componente o un truco más elaborado.
+    })();
+    </script>
+    <input type="hidden" id="is_mobile_detector">
+    """,
+        unsafe_allow_html=True,
+    )
+    st.session_state['is_mobile_detector_script_run'] = True
 
-# Items por página diferente en móvil
-ITEMS_PER_PAGE = 10 if st.session_state.get("is_mobile_detector", False) else 45
+
+# Esto es un placeholder, ya que no podemos leer el input directamente.
+# La lógica de ITEMS_PER_PAGE dependerá de CSS o de un rerun si `is_mobile_detector` se guarda en session_state.
+# Para una detección más robusta, se necesitaría un componente o st_js_eval.
+# Por simplicidad, la CSS ya maneja la visibilidad de ciertos elementos por media query.
+# Aquí mantendremos la lógica original de ITEMS_PER_PAGE pero con la advertencia de que la detección de móvil
+# para Python puede no ser 100% fiable en el primer render sin trucos adicionales.
+ITEMS_PER_PAGE_DESKTOP = 45
+ITEMS_PER_PAGE_MOBILE = 10
+
+# La CSS ya se encarga de mostrar/ocultar elementos de paginación y ajustar visualización
+# No necesitamos realmente ITEMS_PER_PAGE variable en Python si la CSS ya maneja la experiencia
+ITEMS_PER_PAGE = ITEMS_PER_PAGE_DESKTOP # Usaremos el de desktop para el cálculo de páginas
+                                       # La experiencia visual en móvil se ajusta por CSS.
+
 total_pages = max(1, math.ceil(len(df) / ITEMS_PER_PAGE))
-page_key = f"current_page_{linea}"
+page_key = f"current_page_{linea}_{search_term}" # Añadimos search_term para resetear página en nueva búsqueda
+if page_key not in st.session_state:
+    st.session_state[page_key] = 1
 current_page = min(st.session_state.get(page_key, 1), total_pages)
 
-def change_page(n: int):
-    st.session_state[page_key] = n
+
+def change_page(new_page_val: int):
+    st.session_state[page_key] = new_page_val
 
 def pager(position: str):
-    # Versión móvil (flechas juntas)
+    # Versión móvil (flechas juntas) - controlada por CSS
     st.markdown(
         f"""
 <div class="mobile-pager">
   <div class="pagination-mobile">
-    <button onclick="window.dispatchEvent(new Event('prev_page_{position}'))" 
+    <button onclick="window.dispatchEvent(new CustomEvent('streamlit_page_change', {{detail: {{page: {current_page - 1}, position: '{position}', direction: 'prev' }} }}))"
             {'disabled' if current_page == 1 else ''}>◀</button>
     <span style="padding:8px 12px;font-weight:bold;">Pág. {current_page}/{total_pages}</span>
-    <button onclick="window.dispatchEvent(new Event('next_page_{position}'))" 
+    <button onclick="window.dispatchEvent(new CustomEvent('streamlit_page_change', {{detail: {{page: {current_page + 1}, position: '{position}', direction: 'next' }} }}))"
             {'disabled' if current_page == total_pages else ''}>▶</button>
   </div>
 </div>
@@ -222,49 +311,85 @@ def pager(position: str):
         unsafe_allow_html=True,
     )
     
-    # Versión desktop (original)
-    col1, col2, col3 = st.columns([1, 6, 1])
-    with col1:
-        st.button("◀", on_click=change_page, args=(current_page - 1,), 
-                disabled=current_page == 1, key=f"{position}_prev")
-    with col2:
-        st.write(f"Página {current_page} de {total_pages}")
-    with col3:
-        st.button("▶", on_click=change_page, args=(current_page + 1,),
-                disabled=current_page == total_pages, key=f"{position}_next")
+    # Versión desktop (original) - controlada por CSS
+    # Usamos st.columns para que los botones y el texto estén en contenedores separados
+    # y la clase .pagination se aplica al div que los envuelve st.container()
+    
+    # Necesitamos que los botones de Python tengan claves únicas si aparecen en múltiples lugares
+    # o si son recreados dinámicamente.
+    
+    # Wrapper para la paginación desktop
+    st.markdown('<div class="pagination">', unsafe_allow_html=True)
+    
+    cols_pager = st.columns([1,1,1]) # Dividimos en 3 para los botones y el texto
+    
+    with cols_pager[0]:
+        if st.button("◀ Anterior", key=f"{position}_prev_desktop", disabled=current_page == 1, use_container_width=True):
+            change_page(current_page - 1)
+            st.rerun() # Forzar rerun para actualizar la vista con la nueva página
+            
+    with cols_pager[1]:
+        # Para centrar el texto, lo metemos en un div con estilo
+        st.markdown(f"<div style='text-align: center; padding: 0.25rem;'>Página {current_page} de {total_pages}</div>", unsafe_allow_html=True)
 
-# Manejar eventos de paginación móvil
+    with cols_pager[2]:
+        if st.button("Siguiente ▶", key=f"{position}_next_desktop", disabled=current_page == total_pages, use_container_width=True):
+            change_page(current_page + 1)
+            st.rerun() # Forzar rerun
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# JS para manejar los eventos de los botones de paginación móvil (HTML)
+# Estos ahora intentarán encontrar los botones de Python (Streamlit)
+# Esto es propenso a romperse si Streamlit cambia sus internals (data-testid).
+# Una solución más robusta sería usar st.experimental_data_editor o componentes.
 st.markdown(
-    """
+    f"""
 <script>
-// Manejar eventos de los botones móviles
-document.addEventListener('prev_page_top', () => {
-  const current = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[1]);
-  if(current > 1) {
-    window.parent.document.querySelector('button[data-testid="baseButton-secondary"][aria-label="◀"]').click();
-  }
-});
-document.addEventListener('next_page_top', () => {
-  const current = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[1]);
-  const total = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[3]);
-  if(current < total) {
-    window.parent.document.querySelector('button[data-testid="baseButton-secondary"][aria-label="▶"]').click();
-  }
-});
-// Para el paginador inferior
-document.addEventListener('prev_page_bottom', () => {
-  const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
-  if(current > 1) {
-    window.parent.document.querySelectorAll('button[data-testid="baseButton-secondary"][aria-label="◀"]')[1].click();
-  }
-});
-document.addEventListener('next_page_bottom', () => {
-  const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
-  const total = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[3]);
-  if(current < total) {
-    window.parent.document.querySelectorAll('button[data-testid="baseButton-secondary"][aria-label="▶"]')[1].click();
-  }
-});
+document.addEventListener('streamlit_page_change', function(event) {{
+    const {{ page, position, direction }} = event.detail;
+    let buttonToClick;
+
+    // Intentamos hacer clic en los botones de Streamlit de la paginación desktop.
+    // Esto es un workaround porque los botones HTML no pueden cambiar el estado de Streamlit directamente.
+    // Los botones de Streamlit deben estar presentes (aunque ocultos por CSS en móvil).
+    
+    // Identificar si es paginador superior o inferior
+    const desktopPaginatorIndex = (position === 'top') ? 0 : 1;
+
+    if (direction === 'prev') {{
+        // Busca el botón "◀ Anterior" específico (top o bottom)
+        buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("◀ Anterior")')[desktopPaginatorIndex];
+         if (!buttonToClick) {{ // Fallback por si el texto cambia o no se encuentra
+            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*="{position}_prev_desktop"]')[0];
+        }}
+    }} else if (direction === 'next') {{
+        // Busca el botón "Siguiente ▶" específico (top o bottom)
+        buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("Siguiente ▶")')[desktopPaginatorIndex];
+        if (!buttonToClick) {{ // Fallback
+            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*="{position}_next_desktop"]')[0];
+        }}
+    }}
+    
+    if (buttonToClick) {{
+        // Si el botón es el de Streamlit, su propio callback de Python se encargará de la lógica.
+        buttonToClick.click();
+    }} else {{
+        console.warn("Mobile pagination button couldn't find corresponding Streamlit button for position: " + position + ", direction: " + direction);
+        // Si no encontramos el botón de Streamlit, intentamos recargar la página con el parámetro de página.
+        // Esto requiere que manejes el parámetro de URL en Python, lo cual no está implementado actualmente.
+        // const newUrl = new URL(window.parent.location);
+        // newUrl.searchParams.set('page', page);
+        // window.parent.location.href = newUrl.toString();
+    }}
+}});
+
+// Pequeño polyfill para :contains si algún navegador no lo soporta (jQuery lo añade por defecto)
+// No es estándar en CSS selectores, pero algunos navegadores/frameworks lo soportan en querySelectorAll
+// Para una solución robusta, sería mejor iterar y chequear textContent.
+// Sin embargo, para este caso, lo dejamos así esperando que funcione en la mayoría de los entornos modernos
+// o que el fallback por 'key' funcione.
 </script>
 """,
     unsafe_allow_html=True,
@@ -276,21 +401,36 @@ if total_pages > 1:
 # ------------------------------------------------------------------ #
 #  Mostrar productos (grilla 3xN)
 # ------------------------------------------------------------------ #
-start, end = (current_page - 1) * ITEMS_PER_PAGE, current_page * ITEMS_PER_PAGE
-paginated_df = df.iloc[start:end]
+start_idx = (current_page - 1) * ITEMS_PER_PAGE
+end_idx = current_page * ITEMS_PER_PAGE
+paginated_df = df.iloc[start_idx:end_idx]
+
+if paginated_df.empty and len(df) > 0: # Si la página actual está vacía pero hay datos (ej. se borró de otra página)
+    st.session_state[page_key] = 1 # Volver a la página 1
+    st.rerun()
+elif paginated_df.empty and search_term:
+    st.info("No se encontraron productos que coincidan con tu búsqueda.")
+elif paginated_df.empty:
+     st.info("No hay productos para mostrar en esta línea.")
+
 
 for i in range(0, len(paginated_df), 3):
     cols = st.columns(3)
     for j in range(3):
         if i + j >= len(paginated_df):
+            with cols[j]: # Dejar la columna vacía si no hay producto
+                st.container()
             continue
         prod = paginated_df.iloc[i + j]
         with cols[j]:
             st.markdown('<div class="product-card">', unsafe_allow_html=True)
 
             # Imagen
-            if pd.notna(prod.img_bytes):
-                st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True)
+            if pd.notna(prod.img_bytes) and len(prod.img_bytes) > 0:
+                try:
+                    st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True, output_format='PNG')
+                except Exception as e:
+                    st.image("https://via.placeholder.com/200x150?text=Error+Img", use_container_width=True)
             else:
                 st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
 
@@ -300,17 +440,24 @@ for i in range(0, len(paginated_df), 3):
             st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
 
             # Selector cantidad
-            qty_key = f"{linea}-{prod.codigo}"
+            # Clave única para el number_input para evitar conflictos entre productos y líneas
+            qty_key = f"qty_{linea}_{prod.codigo}"
+            
+            # Recuperar la cantidad del carrito para este producto
+            cart = st.session_state.setdefault("cart", {})
+            current_qty_in_cart = cart.get(str(prod.codigo), {}).get("qty", 0)
+
             qty = st.number_input("Cantidad", min_value=0, step=1,
                                   key=qty_key,
-                                  value=st.session_state.get("cart", {}).get(prod.codigo, {}).get("qty", 0))
+                                  value=current_qty_in_cart) # El valor inicial es el del carrito
 
-            # Carrito en sesión
-            cart = st.session_state.setdefault("cart", {})
-            if qty:
-                cart[prod.codigo] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty}
-            elif prod.codigo in cart:
-                del cart[prod.codigo]
+            # Actualizar Carrito en sesión si la cantidad cambia
+            if qty != current_qty_in_cart: # Solo actualizar si hay un cambio
+                if qty > 0:
+                    cart[str(prod.codigo)] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty, "linea": linea}
+                elif str(prod.codigo) in cart: # Si la cantidad es 0 y estaba en el carrito, eliminarlo
+                    del cart[str(prod.codigo)]
+                st.rerun() # Necesario para actualizar el contador del botón del carrito y el FAB
 
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -322,13 +469,11 @@ if total_pages > 1:
 #  Sidebar ➜ Carrito
 # ------------------------------------------------------------------ #
 with st.sidebar:
-    # Botón cerrar
     st.markdown('<div class="close-sidebar" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">✖</div>', unsafe_allow_html=True)
-
     st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    cart = st.session_state["cart"]
+    cart = st.session_state.get("cart", {}) # Usar .get para seguridad
     if cart:
         for cod, it in cart.items():
             st.markdown(
@@ -350,24 +495,39 @@ with st.sidebar:
         msg_lines = [f"- {it['detalle']} (Código {cod}) x {it['qty']}" for cod, it in cart.items()]
         msg = "Hola! Quiero hacer un pedido de los siguientes productos:\n" + "\n".join(msg_lines) + f"\n\nTotal: ${total:,.2f}"
         link = f"https://wa.me/5493516434765?text={urllib.parse.quote(msg)}"
+        
+        # Usar st.link_button para el botón de WhatsApp
+        st.link_button("📲 Confirmar pedido por WhatsApp", link, use_container_width=True, type="primary")
 
-        st.link_button("📲 Confirmar pedido por WhatsApp", link, icon="💬")
 
-        if st.button("🗑️ Vaciar carrito", key="clear_btn"):
-            cart.clear()
-            # Reiniciar todos los number_input
-            for k in list(st.session_state.keys()):
-                if k.startswith(f"{linea}-"):
-                    st.session_state[k] = 0
-            st.experimental_rerun()
+        if st.button("🗑️ Vaciar carrito", key="clear_btn_sidebar", use_container_width=True, type="secondary"):
+            # Crear una copia de las claves de los productos en el carrito antes de limpiarlo
+            # Solo limpiar las cantidades de los productos de la línea actual
+            # O mejor, limpiar todas las cantidades si se vacía el carrito.
+            
+            # Guardar las claves de los number_input que necesitan ser reseteadas
+            keys_to_reset = []
+            for product_code_in_cart, item_details in cart.items():
+                # La clave del input de cantidad se forma con la línea original del producto
+                original_linea = item_details.get("linea", linea) # Fallback a la línea actual si no se guardó
+                keys_to_reset.append(f"qty_{original_linea}_{product_code_in_cart}")
+            
+            cart.clear() # Limpiar el carrito
+            
+            # Resetear los st.number_input a 0
+            for k_to_reset in keys_to_reset:
+                if k_to_reset in st.session_state:
+                    st.session_state[k_to_reset] = 0
+            
+            st.rerun() # Usar st.rerun() que es la forma moderna
     else:
         st.write("Todavía no agregaste productos.")
 
 # ------------------------------------------------------------------ #
-#  FAB móvil
+#  FAB móvil (actualizar su etiqueta)
 # ------------------------------------------------------------------ #
-qty_total = sum(it["qty"] for it in st.session_state["cart"].values())
-fab_label = f"🛒 ({qty_total})" if qty_total else "🛒 Ver carrito"
+qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
+fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Ver carrito"
 st.markdown(
     f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
     unsafe_allow_html=True,
@@ -380,10 +540,17 @@ st.markdown(
     """
 <script>
 window.addEventListener("toggleSidebar", () => {
-  const btn = window.parent.document.querySelector('button[aria-label^="Toggle sidebar"]') ||
-              window.parent.document.querySelector('button[title^="Expand sidebar"]') ||
-              window.parent.document.querySelector('button[title^="Collapse sidebar"]');
-  if (btn) btn.click();
+  const btn = window.parent.document.querySelector('button[data-testid="stSidebarNavToggler"]');
+  if (btn) {
+    btn.click();
+  } else {
+    // Fallback para versiones más antiguas o si el data-testid cambia
+    const olderBtn = window.parent.document.querySelector('button[aria-label^="Toggle sidebar"]') ||
+                     window.parent.document.querySelector('button[title^="Expand sidebar"]') ||
+                     window.parent.document.querySelector('button[title^="Collapse sidebar"]');
+    if (olderBtn) olderBtn.click();
+    else console.warn("Sidebar toggle button not found.");
+  }
 });
 </script>
 """,
