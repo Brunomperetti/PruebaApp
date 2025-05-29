@@ -272,3 +272,77 @@ document.addEventListener('prev_page_bottom', () => {
 document.addEventListener('next_page_bottom', () => {
   const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
   const total = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(
+# ------------------------------------------------------------------ #
+#  Mostrar productos paginados
+# ------------------------------------------------------------------ #
+start_idx = (current_page - 1) * ITEMS_PER_PAGE
+end_idx = start_idx + ITEMS_PER_PAGE
+items = df.iloc[start_idx:end_idx]
+
+cols = st.columns(3 if not st.session_state.get("is_mobile_detector", False) else 1)
+
+for idx, (i, row) in enumerate(items.iterrows()):
+    with cols[idx % len(cols)]:
+        st.markdown('<div class="product-card">', unsafe_allow_html=True)
+        if row["img_bytes"]:
+            st.image(Image.open(io.BytesIO(row["img_bytes"])), use_column_width="always", caption="")
+        else:
+            st.markdown('<div class="product-image">Sin imagen</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="product-title">{row["detalle"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="product-code">{row["codigo"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="product-price">${row["precio"]:.2f}</div>', unsafe_allow_html=True)
+        qty_key = f"qty_{row['codigo']}"
+        qty = st.number_input("Cantidad", min_value=0, max_value=99, step=1, key=qty_key)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# Mostrar paginador abajo
+pager("bottom")
+
+# ------------------------------------------------------------------ #
+#  Carrito: mostrar contenido en sidebar
+# ------------------------------------------------------------------ #
+st.sidebar.markdown('<div class="sidebar-title">🛒 Carrito</div>', unsafe_allow_html=True)
+carrito = []
+
+total = 0
+for codigo in df_base["codigo"]:
+    qty = st.session_state.get(f"qty_{codigo}", 0)
+    if qty > 0:
+        row = df_base[df_base["codigo"] == codigo].iloc[0]
+        subtotal = row["precio"] * qty
+        total += subtotal
+        carrito.append((row["codigo"], row["detalle"], qty, subtotal))
+        st.sidebar.markdown(
+            f'<div class="cart-item">{qty} x <strong>{row["detalle"]}</strong><br><small>{row["codigo"]}</small> - ${subtotal:.2f}</div>',
+            unsafe_allow_html=True,
+        )
+
+st.sidebar.markdown(f'<div class="cart-total">Total: ${total:.2f}</div>', unsafe_allow_html=True)
+
+if carrito:
+    # Botón de enviar por WhatsApp
+    texto = "¡Hola! Quiero pedir estos productos:\n"
+    for cod, desc, cant, sub in carrito:
+        texto += f"- {cant} x {desc} ({cod}) = ${sub:.2f}\n"
+    texto += f"\nTotal: ${total:.2f}"
+    whatsapp_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote_plus(texto)}"
+    st.sidebar.markdown(f'<a href="{whatsapp_url}" target="_blank"><button class="whatsapp-btn">Enviar por WhatsApp</button></a>', unsafe_allow_html=True)
+
+    # Botón para limpiar el carrito
+    if st.sidebar.button("🗑 Limpiar carrito", key="clear_cart"):
+        for codigo in df_base["codigo"]:
+            st.session_state[f"qty_{codigo}"] = 0
+        st.rerun()
+
+# ------------------------------------------------------------------ #
+#  FAB (floating action button) para carrito
+# ------------------------------------------------------------------ #
+if carrito:
+    st.markdown(
+        f"""
+<a href="#" onclick="window.parent.document.querySelector('[data-testid=stSidebar]').style.visibility='visible';">
+  <div class="carrito-fab">🛒 Ver carrito</div>
+</a>
+""",
+        unsafe_allow_html=True,
+    )
