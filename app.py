@@ -89,7 +89,64 @@ div[class^="viewerBadge_container"],
 .pagination button:disabled{opacity:.5;cursor:not-allowed;}
 
 /* --- Sidebar (carrito) --- */
-[data-testid="stSidebar"]{background:#f8f9fa;padding:16px;position:relative;}
+[data-testid="stSidebar"] {
+    background:#f8f9fa;
+    padding:16px;
+    position:relative;
+    min-width:300px!important;
+    max-width:350px!important;
+}
+[data-testid="stSidebarNav"] {
+    margin-top: 50px;
+}
+[data-testid="stSidebarNavItems"] {
+    max-height: none!important;
+    padding-top: 0!important;
+}
+[data-testid="collapsedControl"] {
+    background: #f63366;
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    transition: all 0.3s ease;
+}
+[data-testid="collapsedControl"]:hover {
+    background: #e62b5c;
+    transform: scale(1.05);
+}
+[data-testid="collapsedControl"]::after {
+    content: "🛒";
+    font-size: 24px;
+}
+[data-testid="collapsedControl"] svg {
+    display: none;
+}
+.cart-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: white;
+    color: #f63366;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #f63366;
+}
+
 .sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
 .cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
 .cart-item:last-child{border-bottom:none;}
@@ -374,19 +431,40 @@ st.markdown(
 )
 
 # ------------------------------------------------------------------ #
-#  JS global: alternar sidebar
+#  JS global: alternar sidebar + actualizar badge carrito
 # ------------------------------------------------------------------ #
 st.markdown(
-    """
+    f"""
 <script>
-window.addEventListener("toggleSidebar", () => {
+// Actualizar badge del carrito
+function updateCartBadge() {{
+    const qty = {qty_total};
+    const badge = window.parent.document.querySelector('.cart-badge');
+    const control = window.parent.document.querySelector('[data-testid="collapsedControl"]');
+    
+    if (!badge && qty > 0) {{
+        const newBadge = window.parent.document.createElement('div');
+        newBadge.className = 'cart-badge';
+        newBadge.textContent = qty;
+        control.appendChild(newBadge);
+    }} else if (badge) {{
+        if (qty > 0) {{
+            badge.textContent = qty;
+        }} else {{
+            badge.remove();
+        }}
+    }}
+}}
+updateCartBadge();
+
+// Alternar sidebar
+window.addEventListener("toggleSidebar", () => {{
   const btn = window.parent.document.querySelector('button[aria-label^="Toggle sidebar"]') ||
               window.parent.document.querySelector('button[title^="Expand sidebar"]') ||
               window.parent.document.querySelector('button[title^="Collapse sidebar"]');
   if (btn) btn.click();
-});
+}});
 </script>
 """,
     unsafe_allow_html=True,
 )
-
