@@ -29,56 +29,40 @@ div[class^="viewerBadge_container"],
 /* Ajuste top padding */
 .block-container {padding-top:1rem;}
 
-/* Personalizar el botón de la barra lateral */
+/* Ocultar la flecha original y reemplazarla con un botón personalizado */
 button[data-testid="stSidebarNavToggler"] {
+    visibility: hidden;
+    position: absolute;
+}
+
+button[data-testid="stSidebarNavToggler"]::after {
+    content: "Abrir Carrito";
+    visibility: visible;
+    position: relative;
     background: #f63366;
     color: white;
     border: none;
     height: 3rem;
-    width: 6rem;
+    width: 9rem;
     border-radius: 0.5rem;
-    position: fixed;
-    top: 1rem;
-    left: 1rem;
-    z-index: 100;
-}
-button[data-testid="stSidebarNavToggler"]:hover {
-    background: #e02b5a;
-}
-
-/* Ocultar la flecha y mostrar texto */
-button[data-testid="stSidebarNavToggler"] > div {
-    visibility: hidden;
-    position: absolute;
-}
-button[data-testid="stSidebarNavToggler"]:after {
-    content: "Carrito";
-    visibility: visible;
-    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    cursor: pointer;
 }
 
 /* Nuevas reglas para móvil */
 @media(max-width:768px){
-  /* Paginación móvil - flechas juntas */
   .pagination-mobile{display:flex;justify-content:center;gap:16px;margin:20px 0;}
   .pagination-mobile button{background:#f0f2f6;border:none;border-radius:6px;
     padding:8px 16px;cursor:pointer;transition:.3s;font-size:18px;}
   .pagination-mobile button:hover{background:#e0e2e6;}
   .pagination-mobile button:disabled{opacity:.5;cursor:not-allowed;}
-
-  /* Ocultar paginación normal en móvil */
   .pagination{display:none;}
-
-  /* Mostrar paginación móvil */
   .mobile-pager{display:block!important;}
-
-  /* Reducir productos por página en móvil */
   .mobile-items-per-page{display:block!important;}
-
-  /* Ocultar botón de carrito desktop en móvil, ya que tenemos el FAB */
-  .desktop-cart-button-container {
-      display:none!important;
-  }
+  .desktop-cart-button-container {display:none!important;}
 }
 
 /* Ocultar paginación móvil en desktop */
@@ -95,7 +79,7 @@ button[data-testid="stSidebarNavToggler"]:after {
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
 .carrito-fab:hover{transform:scale(1.06);}
-@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet - OJO: Si quieres el FAB en desktop, comenta o borra esta línea */
+@media(min-width:769px){.carrito-fab{display:none;}}
 
 /* Productos */
 .product-card{border:1px solid #e0e0e0;border-radius:12px;
@@ -123,9 +107,6 @@ button[data-testid="stSidebarNavToggler"]:after {
 .cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
 .cart-item:last-child{border-bottom:none;}
 .cart-total{font-weight:700;font-size:18px;margin:16px 0;color:#f63366;}
-.close-sidebar{position:absolute;top:10px;right:14px;font-size:22px;
-  cursor:pointer;color:#666;user-select:none;}
-.close-sidebar:hover{color:#000;}
 .whatsapp-btn{background:#25D366!important;color:#fff!important;width:100%;margin:8px 0;}
 .clear-btn{background:#f8f9fa!important;color:#f63366!important;
   border:1px solid #f63366!important;width:100%;margin:8px 0;}
@@ -159,15 +140,14 @@ def load_products(xls_path: str) -> pd.DataFrame:
     img_map = {img.anchor._from.row + 1: img._data() for img in ws._images if hasattr(img, "_data")}
     rows = []
     for idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-        if not row[1]:  # columna B vacía => fin
+        if not row[1]:
             break
         codigo, detalle, precio = row[1], row[2], row[3]
         precio = 0 if precio is None else float(str(precio).replace("$", "").replace(",", ""))
         rows.append({"fila_excel": idx, "codigo": str(codigo), "detalle": str(detalle), "precio": precio})
     df = pd.DataFrame(rows)
     df["img_bytes"] = df["fila_excel"].map(img_map)
-    # Columnas normalizadas para búsqueda
-    df["codigo_norm"]  = df["codigo"].apply(quitar_acentos)
+    df["codigo_norm"] = df["codigo"].apply(quitar_acentos)
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
 
