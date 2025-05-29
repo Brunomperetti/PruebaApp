@@ -86,6 +86,7 @@ if carrito:
     st.sidebar.markdown(f"**Total: ${total:,.2f}**")
     if st.sidebar.button("Vaciar carrito"):
         st.session_state["carrito"] = {}
+        st.experimental_rerun()
 else:
     st.sidebar.write("El carrito está vacío")
 
@@ -129,8 +130,9 @@ df_pagina = df.iloc[start_idx:end_idx]
 
 def cambiar_pagina(nueva_pagina):
     st.session_state["pagina_actual"] = nueva_pagina
+    st.experimental_rerun()
 
-# Vamos a usar formularios para que cada producto tenga cantidad y botón independiente
+# Productos con formulario para cantidad y agregar
 for idx, row in df_pagina.iterrows():
     cols = st.columns([1, 5, 2, 2])
     with cols[0]:
@@ -162,7 +164,9 @@ for idx, row in df_pagina.iterrows():
                         "precio": row["precio"],
                         "cantidad": cantidad,
                     }
+                st.session_state["carrito"] = carrito
                 st.success(f"Agregaste {cantidad} x {row['detalle']} al carrito")
+                st.experimental_rerun()
 
 col_ant, col_info, col_sig = st.columns([1, 3, 1])
 with col_ant:
@@ -175,6 +179,5 @@ with col_sig:
         cambiar_pagina(pagina_actual + 1)
 
 st.session_state["pagina_actual"] = pagina_actual
-
 
 
