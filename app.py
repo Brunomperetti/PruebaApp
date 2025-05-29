@@ -2,13 +2,10 @@ import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
 from pathlib import Path
-import unicodedata
-import requests
-import tempfile
+from PIL import Image
+import io, unicodedata, tempfile, requests, math
 
-# ------------------------------------------------------------------ #
-#  Configuración general
-# ------------------------------------------------------------------ #
+# Configuración general
 st.set_page_config(
     page_title="Catálogo Millex",
     page_icon="🐾",
@@ -17,125 +14,36 @@ st.set_page_config(
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
-# ------------------------------------------------------------------ #
-#  CSS global (oculta logos, estilos, FAB, botón cerrar carrito)
-# ------------------------------------------------------------------ #
-st.markdown(
-    """
+# CSS para ocultar menús y estilos botón carrito
+st.markdown("""
 <style>
-/* --- Ocultar menús / logos --- */
 #MainMenu, footer, header {visibility: hidden;}
-.viewerBadge_container__1QSob,
-.viewerBadge_container__rGiy7,
-a[href="https://streamlit.io"],
-div[class^="viewerBadge_container"],
-.stDeployButton {display:none!important;}
-
-/* Ajuste top padding */
-.block-container {padding-top:1rem;}
-
-/* --- Nuevas reglas para móvil --- */
-@media(max-width:768px){
-  /* Paginación móvil - flechas juntas */
-  .pagination-mobile{display:flex;justify-content:center;gap:16px;margin:20px 0;}
-  .pagination-mobile button{background:#f0f2f6;border:none;border-radius:6px;
-    padding:8px 16px;cursor:pointer;transition:.3s;font-size:18px;}
-  .pagination-mobile button:hover{background:#e0e2e6;}
-  .pagination-mobile button:disabled{opacity:.5;cursor:not-allowed;}
-  
-  /* Ocultar paginación normal en móvil */
-  .pagination{display:none;}
-  
-  /* Mostrar paginación móvil */
-  .mobile-pager{display:block!important;}
-  
-  /* Reducir productos por página en móvil */
-  .mobile-items-per-page{display:block!important;}
-}
-
-/* Ocultar paginación móvil en desktop */
-.mobile-pager{display:none;}
-.mobile-items-per-page{display:none;}
-
-/* --- FAB carrito (solo mobile) --- */
-.carrito-fab{
-  position:fixed;bottom:16px;right:16px;
-  background:#f63366;color:#fff;
-  padding:14px 20px;font-size:18px;font-weight:700;
-  border-radius:32px;box-shadow:0 4px 12px rgba(0,0,0,.35);
-  z-index:99999;cursor:pointer;transition:transform .15s;
-  display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.carrito-fab:hover{transform:scale(1.06);}
-@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet */
-
-/* --- Productos --- */
-.product-card{border:1px solid #e0e0e0;border-radius:12px;
-  padding:16px;height:100%;transition:box-shadow .3s;
-  display:flex;flex-direction:column;}
-.product-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);}
-.product-image{width:100%;height:180px;object-fit:contain;
-  margin-bottom:12px;border-radius:8px;background:#f9f9f9;}
-.product-title{font-size:16px;font-weight:600;margin-bottom:8px;color:#333;flex-grow:1;}
-.product-code{font-size:14px;color:#666;margin-bottom:4px;}
-.product-price{font-size:18px;font-weight:700;color:#f63366;margin-bottom:12px;}
-.stNumberInput>div,.stNumberInput input{width:100%;}
-
-/* --- Paginación --- */
-.pagination{display:flex;justify-content:center;margin:20px 0;gap:8px;}
-.pagination button{background:#f0f2f6;border:none;border-radius:6px;
-  padding:8px 12px;cursor:pointer;transition:.3s;}
-.pagination button:hover{background:#e0e2e6;}
-.pagination button.active{background:#f63366;color:#fff;}
-.pagination button:disabled{opacity:.5;cursor:not-allowed;}
-
-/* --- Sidebar (carrito) --- */
-[data-testid="stSidebar"]{background:#f8f9fa;padding:16px;position:relative;}
-.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
-.cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
-.cart-item:last-child{border-bottom:none;}
-.cart-total{font-weight:700;font-size:18px;margin:16px 0;color:#f63366;}
-.close-sidebar{position:absolute;top:10px;right:14px;font-size:22px;
-  cursor:pointer;color:#666;user-select:none;}
-.close-sidebar:hover{color:#000;}
-.whatsapp-btn{background:#25D366!important;color:#fff!important;width:100%;margin:8px 0;}
-.clear-btn{background:#f8f9fa!important;color:#f63366!important;
-  border:1px solid #f63366!important;width:100%;margin:8px 0;}
-
-/* Botón "Ver carrito" al lado del desplegable */
-#ver_carrito_btn {
-    background-color: #f63366;
+.carrito-top-right {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #f63366;
     color: white;
     border: none;
-    padding: 8px 16px;
-    font-weight: 700;
-    border-radius: 8px;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    font-weight: bold;
     cursor: pointer;
-    height: 38px;
-    margin-left: 12px;
-    align-self: center;
-    transition: background-color 0.3s;
-}
-#ver_carrito_btn:hover {
-    background-color: #d12b56;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
-# ------------------------------------------------------------------ #
-#  Utilidades
-# ------------------------------------------------------------------ #
 def quitar_acentos(texto: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFKD", str(texto))
         if not unicodedata.combining(c)
     ).lower()
 
-# ------------------------------------------------------------------ #
-#  Descarga del Excel (cacheado)
-# ------------------------------------------------------------------ #
 @st.cache_data(show_spinner=False)
 def fetch_excel(file_id: str) -> Path:
     url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx"
@@ -145,9 +53,6 @@ def fetch_excel(file_id: str) -> Path:
     tmp.write_bytes(r.content)
     return tmp
 
-# ------------------------------------------------------------------ #
-#  Lectura de productos + imágenes (cacheado)
-# ------------------------------------------------------------------ #
 @st.cache_data(show_spinner=False)
 def load_products(xls_path: str) -> pd.DataFrame:
     wb = load_workbook(xls_path, data_only=True)
@@ -155,20 +60,17 @@ def load_products(xls_path: str) -> pd.DataFrame:
     img_map = {img.anchor._from.row + 1: img._data() for img in ws._images if hasattr(img, "_data")}
     rows = []
     for idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-        if not row[1]:   # columna B vacía => fin
+        if not row[1]:
             break
         codigo, detalle, precio = row[1], row[2], row[3]
         precio = 0 if precio is None else float(str(precio).replace("$", "").replace(",", ""))
         rows.append({"fila_excel": idx, "codigo": str(codigo), "detalle": str(detalle), "precio": precio})
     df = pd.DataFrame(rows)
     df["img_bytes"] = df["fila_excel"].map(img_map)
-    df["codigo_norm"]  = df["codigo"].apply(quitar_acentos)
+    df["codigo_norm"] = df["codigo"].apply(quitar_acentos)
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
 
-# ------------------------------------------------------------------ #
-#  IDs de hojas (líneas de productos)
-# ------------------------------------------------------------------ #
 FILE_IDS = {
     "Línea Perros": "1EK_NlWT-eS5_7P2kWwBHsui2tKu5t26U",
     "Línea Pájaros y Roedores": "1n10EZZvZq-3M2t3rrtmvW7gfeB40VJ7F",
@@ -176,52 +78,125 @@ FILE_IDS = {
     "Línea Bombas de Acuario": "1DiXE5InuxMjZio6HD1nkwtQZe8vaGcSh",
 }
 
-# ------------------------------------------------------------------ #
-#  UI: selector de línea + botón "Ver carrito"
-# ------------------------------------------------------------------ #
-col_linea, col_ver_carrito, col_search = st.columns([2, 1, 5])
+col_linea, col_search = st.columns([2.2, 3])
 with col_linea:
-    linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()))
-
-with col_ver_carrito:
-    if st.button("Ver carrito", key="ver_carrito_btn"):
-        st.sidebar.expander("Carrito").button("Cerrar carrito")
-
+    linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()), label_visibility="collapsed", placeholder="Elegí la línea de productos:")
 with col_search:
-    buscar = st.text_input("Buscar en productos:")
+    search_term = st.text_input("🔍 Buscar (código o descripción)…", placeholder="🔍 Buscar (código o descripción)…", label_visibility="collapsed").strip().lower()
+search_norm = quitar_acentos(search_term)
 
-# ------------------------------------------------------------------ #
-#  Carga y filtrado productos
-# ------------------------------------------------------------------ #
-df = load_products(fetch_excel(FILE_IDS[linea]))
+df_base = load_products(str(fetch_excel(FILE_IDS[linea])))
 
-df_filtrado = df[
-    (df["codigo_norm"].str.contains(quitar_acentos(buscar))) |
-    (df["detalle_norm"].str.contains(quitar_acentos(buscar)))
-]
+if search_term:
+    df = df_base[
+        df_base["codigo_norm"].str.contains(search_norm, na=False)
+        | df_base["detalle_norm"].str.contains(search_norm, na=False)
+    ]
+else:
+    df = df_base.copy()
 
-# ------------------------------------------------------------------ #
-#  Mostrar productos (simplificado)
-# ------------------------------------------------------------------ #
-for _, row in df_filtrado.iterrows():
-    st.write(f"**{row['codigo']}** - {row['detalle']} - ${row['precio']}")
+ITEMS_PER_PAGE = 45
+total_pages = max(1, math.ceil(len(df) / ITEMS_PER_PAGE))
+page_key = f"current_page_{linea}_{search_term}"
+if page_key not in st.session_state:
+    st.session_state[page_key] = 1
+current_page = min(st.session_state.get(page_key, 1), total_pages)
 
-# ------------------------------------------------------------------ #
-#  Sidebar: carrito (simplificado)
-# ------------------------------------------------------------------ #
-with st.sidebar:
-    st.title("🛒 Carrito de compras")
-    st.write("Aquí se mostrarán los productos agregados al carrito.")
+def change_page(new_page_val: int):
+    st.session_state[page_key] = new_page_val
 
-# ------------------------------------------------------------------ #
-#  FAB móvil (botón flotante)
-# ------------------------------------------------------------------ #
-st.markdown(
-    """
-<div class="carrito-fab" onclick="window.scrollTo({top: 0, behavior: 'smooth'});">
-  🛒 Carrito
-</div>
-""",
-    unsafe_allow_html=True,
-)
+# Paginación simple con botones Streamlit (sin JS)
+cols_pager = st.columns([1, 1, 1])
+with cols_pager[0]:
+    if st.button("◀ Anterior", key="prev_page", disabled=current_page == 1):
+        change_page(current_page - 1)
+        st.experimental_rerun()
+with cols_pager[1]:
+    st.markdown(f"<center>Página {current_page} de {total_pages}</center>", unsafe_allow_html=True)
+with cols_pager[2]:
+    if st.button("Siguiente ▶", key="next_page", disabled=current_page == total_pages):
+        change_page(current_page + 1)
+        st.experimental_rerun()
+
+start_idx = (current_page - 1) * ITEMS_PER_PAGE
+end_idx = current_page * ITEMS_PER_PAGE
+paginated_df = df.iloc[start_idx:end_idx]
+
+if paginated_df.empty and len(df) > 0:
+    st.session_state[page_key] = 1
+    st.experimental_rerun()
+elif paginated_df.empty and search_term:
+    st.info("No se encontraron productos que coincidan con tu búsqueda.")
+elif paginated_df.empty:
+    st.info("No hay productos para mostrar en esta línea.")
+
+for i in range(0, len(paginated_df), 3):
+    cols = st.columns(3)
+    for j in range(3):
+        if i + j >= len(paginated_df):
+            with cols[j]:
+                st.container()
+            continue
+        prod = paginated_df.iloc[i + j]
+        with cols[j]:
+            st.markdown('<div class="product-card">', unsafe_allow_html=True)
+            if pd.notna(prod.img_bytes) and len(prod.img_bytes) > 0:
+                try:
+                    st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True, output_format='PNG')
+                except Exception:
+                    st.image("https://via.placeholder.com/200x150?text=Error+Img", use_container_width=True)
+            else:
+                st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
+
+            st.markdown(f'<div class="product-title">{prod.detalle}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="product-code">Código: {prod.codigo}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
+
+            qty_key = f"qty_{linea}_{prod.codigo}"
+            cart = st.session_state.setdefault("cart", {})
+            current_qty_in_cart = cart.get(str(prod.codigo), {}).get("qty", 0)
+
+            qty = st.number_input("Cantidad", min_value=0, step=1,
+                                  key=qty_key,
+                                  value=current_qty_in_cart)
+
+            if qty != current_qty_in_cart:
+                if qty > 0:
+                    cart[str(prod.codigo)] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty, "linea": linea}
+                elif str(prod.codigo) in cart:
+                    del cart[str(prod.codigo)]
+                st.experimental_rerun()
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+# Botón carrito (streamlit button que controla mostrar sidebar)
+if "show_cart" not in st.session_state:
+    st.session_state["show_cart"] = False
+
+def toggle_cart():
+    st.session_state["show_cart"] = not st.session_state["show_cart"]
+
+qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
+
+st.markdown(f'''
+<button class="carrito-top-right" onclick="window.parent.postMessage({{func:'streamlit:setComponentValue', args: ['toggle_cart'] }}, '*')">
+    🛒 {qty_total_fab}
+</button>
+''', unsafe_allow_html=True)
+
+if st.session_state["show_cart"]:
+    with st.sidebar:
+        st.title("🛒 Carrito de Compras")
+        if not st.session_state.get("cart"):
+            st.info("Tu carrito está vacío.")
+        else:
+            total = 0
+            for code, item in st.session_state["cart"].items():
+                st.write(f"{item['detalle']} x {item['qty']} — ${item['precio']*item['qty']:.2f}")
+                total += item['precio'] * item['qty']
+            st.markdown(f"### Total: ${total:,.2f}")
+
+        if st.button("Vaciar carrito"):
+            st.session_state["cart"] = {}
+            st.experimental_rerun()
 
