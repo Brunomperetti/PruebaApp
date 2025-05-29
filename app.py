@@ -69,37 +69,6 @@ div[class^="viewerBadge_container"],
 .carrito-fab:hover{transform:scale(1.06);}
 @media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet - OJO: Si quieres el FAB en desktop, comenta o borra esta línea */
 
-/* Botón Carrito Desktop (Opción 2) */
-.desktop-cart-button-container {
-    display: flex;
-    align-items: flex-end; /* Alinea el botón con la base de los inputs */
-    height: 100%;
-    padding-bottom: 0px; /* Ajustado para que el botón se alinee mejor con st.text_input */
-}
-/* Estilo para el botón HTML para que se parezca a los de Streamlit pero con colores personalizados */
-.desktop-cart-button-container button.custom-st-button {
-    width: 100%;
-    background-color: #f63366;
-    color: white;
-    border: none;
-    padding: 0.5rem 1rem; /* Similar al padding de st.button */
-    border-radius: 0.5rem; /* Similar al border-radius de st.button */
-    font-weight: 600; /* Similar a st.button */
-    font-size: 0.875rem; /* Similar a st.button */
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    height: 40px; /* Ajustar altura para que coincida con st.text_input */
-    line-height: 24px; /* Ajustar para centrar texto verticalmente */
-}
-.desktop-cart-button-container button.custom-st-button:hover {
-    background-color: #e02b5a;
-    color: white;
-}
-.desktop-cart-button-container button.custom-st-button:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(246, 51, 102, 0.5); /* Sombra de foco similar a Streamlit */
-}
-
 /* Productos */
 .product-card{border:1px solid #e0e0e0;border-radius:12px;
   padding:16px;height:100%;transition:box-shadow .3s;
@@ -182,28 +151,13 @@ FILE_IDS = {
     "Línea Bombas de Acuario": "1DiXE5InuxMjZio6HD1nkwtQZe8vaGcSh",
 }
 
-# UI: selector de línea + buscador + botón carrito (Opción 2)
-col_linea, col_search, col_cart_btn_placeholder = st.columns([2.2, 3, 1.5]) # Ajustar ratios según necesidad
+# UI: selector de línea + buscador
+col_linea, col_search = st.columns([2.2, 3])
 with col_linea:
     linea = st.selectbox("Elegí la línea de productos:", list(FILE_IDS.keys()), label_visibility="collapsed", placeholder="Elegí la línea de productos:")
 with col_search:
     search_term = st.text_input("🔍 Buscar (código o descripción)…", placeholder="🔍 Buscar (código o descripción)…", label_visibility="collapsed").strip().lower()
 search_norm = quitar_acentos(search_term)
-
-# Botón para abrir el carrito en desktop (se oculta en móvil si el FAB ya existe)
-with col_cart_btn_placeholder:
-    qty_total_header = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
-    cart_btn_label = f"🛒 Carrito ({qty_total_header})" if qty_total_header else "🛒 Ver Carrito"
-
-    # Usamos HTML para poder aplicar una clase y ocultarlo en móvil, y para el onclick JS
-    st.markdown(
-        f"""
-        <div class="desktop-cart-button-container">
-            <button class="custom-st-button" onclick="window.dispatchEvent(new Event('toggleSidebar'))">{cart_btn_label}</button>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 # Carga y filtrado del catálogo
 df_base = load_products(str(fetch_excel(FILE_IDS[linea])))
@@ -220,11 +174,10 @@ else:
 ITEMS_PER_PAGE_DESKTOP = 45
 ITEMS_PER_PAGE_MOBILE = 10
 
-# La CSS ya se encarga de mostrar/ocultar elementos de paginación y ajustar visualización
-ITEMS_PER_PAGE = ITEMS_PER_PAGE_DESKTOP  # Usaremos el de desktop para el cálculo de páginas
+ITEMS_PER_PAGE = ITEMS_PER_PAGE_DESKTOP
 
 total_pages = max(1, math.ceil(len(df) / ITEMS_PER_PAGE))
-page_key = f"current_page_{linea}_{search_term}"  # Añadimos search_term para resetear página en nueva búsqueda
+page_key = f"current_page_{linea}_{search_term}"
 if page_key not in st.session_state:
     st.session_state[page_key] = 1
 current_page = min(st.session_state.get(page_key, 1), total_pages)
@@ -233,7 +186,6 @@ def change_page(new_page_val: int):
     st.session_state[page_key] = new_page_val
 
 def pager(position: str):
-    # Versión móvil (flechas juntas) - controlada por CSS
     st.markdown(
         f"""
     <div class="mobile-pager">
@@ -249,15 +201,14 @@ def pager(position: str):
         unsafe_allow_html=True,
     )
 
-    # Versión desktop (original) - controlada por CSS
     st.markdown('<div class="pagination">', unsafe_allow_html=True)
 
-    cols_pager = st.columns([1, 1, 1])  # Dividimos en 3 para los botones y el texto
+    cols_pager = st.columns([1, 1, 1])
 
     with cols_pager[0]:
         if st.button("◀ Anterior", key=f"{position}_prev_desktop", disabled=current_page == 1, use_container_width=True):
             change_page(current_page - 1)
-            st.rerun()  # Forzar rerun para actualizar la vista con la nueva página
+            st.rerun()
 
     with cols_pager[1]:
         st.markdown(f"<div style='text-align: center; padding: 0.25rem;'>Página {current_page} de {total_pages}</div>", unsafe_allow_html=True)
@@ -265,11 +216,10 @@ def pager(position: str):
     with cols_pager[2]:
         if st.button("Siguiente ▶", key=f"{position}_next_desktop", disabled=current_page == total_pages, use_container_width=True):
             change_page(current_page + 1)
-            st.rerun()  # Forzar rerun
+            st.rerun()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# JS para manejar los eventos de los botones de paginación móvil (HTML)
 st.markdown(
     """
 <script>
@@ -317,13 +267,12 @@ document.addEventListener('streamlit_page_change', function(event) {
 if total_pages > 1:
     pager("top")
 
-# Mostrar productos (grilla 3xN)
 start_idx = (current_page - 1) * ITEMS_PER_PAGE
 end_idx = current_page * ITEMS_PER_PAGE
 paginated_df = df.iloc[start_idx:end_idx]
 
-if paginated_df.empty and len(df) > 0:  # Si la página actual está vacía pero hay datos (ej. se borró de otra página)
-    st.session_state[page_key] = 1  # Volver a la página 1
+if paginated_df.empty and len(df) > 0:
+    st.session_state[page_key] = 1
     st.rerun()
 elif paginated_df.empty and search_term:
     st.info("No se encontraron productos que coincidan con tu búsqueda.")
@@ -334,14 +283,13 @@ for i in range(0, len(paginated_df), 3):
     cols = st.columns(3)
     for j in range(3):
         if i + j >= len(paginated_df):
-            with cols[j]:  # Dejar la columna vacía si no hay producto
+            with cols[j]:
                 st.container()
             continue
         prod = paginated_df.iloc[i + j]
         with cols[j]:
             st.markdown('<div class="product-card">', unsafe_allow_html=True)
 
-            # Imagen
             if pd.notna(prod.img_bytes) and len(prod.img_bytes) > 0:
                 try:
                     st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True, output_format='PNG')
@@ -350,43 +298,37 @@ for i in range(0, len(paginated_df), 3):
             else:
                 st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
 
-            # Texto
             st.markdown(f'<div class="product-title">{prod.detalle}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="product-code">Código: {prod.codigo}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
 
-            # Selector cantidad
             qty_key = f"qty_{linea}_{prod.codigo}"
 
-            # Recuperar la cantidad del carrito para este producto
             cart = st.session_state.setdefault("cart", {})
             current_qty_in_cart = cart.get(str(prod.codigo), {}).get("qty", 0)
 
             qty = st.number_input("Cantidad", min_value=0, step=1,
                                   key=qty_key,
-                                  value=current_qty_in_cart)  # El valor inicial es el del carrito
+                                  value=current_qty_in_cart)
 
-            # Actualizar Carrito en sesión si la cantidad cambia
-            if qty != current_qty_in_cart:  # Solo actualizar si hay un cambio
+            if qty != current_qty_in_cart:
                 if qty > 0:
                     cart[str(prod.codigo)] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty, "linea": linea}
-                elif str(prod.codigo) in cart:  # Si la cantidad es 0 y estaba en el carrito, eliminarlo
+                elif str(prod.codigo) in cart:
                     del cart[str(prod.codigo)]
-                st.rerun()  # Necesario para actualizar el contador del botón del carrito y el FAB
+                st.rerun()
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-# Paginador inferior
 if total_pages > 1:
     pager("bottom")
 
 # Sidebar ➜ Carrito
 with st.sidebar:
-    st.markdown('<div class="close-sidebar" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">✖</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title"><button onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))" style="background: none; border: none; font-size: 24px; cursor: pointer;">🛒 Carrito</button></div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    cart = st.session_state.get("cart", {}) # Usar .get para seguridad
+    cart = st.session_state.get("cart", {})
     if cart:
         for cod, it in cart.items():
             st.markdown(
@@ -404,24 +346,20 @@ with st.sidebar:
         total = sum(it["precio"] * it["qty"] for it in cart.values())
         st.markdown(f'<div class="cart-total">Total: ${total:,.2f}</div>', unsafe_allow_html=True)
 
-        # Enlace WhatsApp
         msg_lines = [f"- {it['detalle']} (Código {cod}) x {it['qty']}" for cod, it in cart.items()]
         msg = "Hola! Quiero hacer un pedido de los siguientes productos:\n" + "\n".join(msg_lines) + f"\n\nTotal: ${total:,.2f}"
         link = f"https://wa.me/5493516434765?text={urllib.parse.quote(msg)}"
 
-        # Usar st.link_button para el botón de WhatsApp
         st.link_button("📲 Confirmar pedido por WhatsApp", link, use_container_width=True, type="primary")
 
         if st.button("🗑️ Vaciar carrito", key="clear_btn_sidebar", use_container_width=True, type="secondary"):
-            # Crear una copia de las claves de los productos en el carrito antes de limpiarlo
             keys_to_reset = []
             for product_code_in_cart, item_details in cart.items():
-                original_linea = item_details.get("linea", linea) # Fallback a la línea actual si no se guardó
+                original_linea = item_details.get("linea", linea)
                 keys_to_reset.append(f"qty_{original_linea}_{product_code_in_cart}")
 
-            cart.clear() # Limpiar el carrito
+            cart.clear()
 
-            # Resetear los st.number_input a 0
             for k_to_reset in keys_to_reset:
                 if k_to_reset in st.session_state:
                     st.session_state[k_to_reset] = 0
@@ -430,15 +368,13 @@ with st.sidebar:
     else:
         st.write("Todavía no agregaste productos.")
 
-# FAB móvil (actualizar su etiqueta)
 qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values())
-fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Ver carrito"
+fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Carrito"
 st.markdown(
     f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
     unsafe_allow_html=True,
 )
 
-# JS global: alternar sidebar
 st.markdown(
     """
 <script>
