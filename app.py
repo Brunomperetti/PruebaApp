@@ -45,10 +45,10 @@ button[data-testid="stSidebarNavToggler"] {
 }
 
 /* Texto debajo de la flecha */
-button[data-testid="stSidebarNavToggler"]::after {
-    content: "Abrir Carrito";
-    position: relative;
-    top: 10px;
+.custom-sidebar-text {
+    position: absolute;
+    top: 40px;
+    left: 10px;
     font-size: 1rem;
     color: #f63366;
 }
@@ -381,6 +381,14 @@ qty_total_fab = sum(it["qty"] for it in st.session_state.get("cart", {}).values(
 fab_label = f"🛒 ({qty_total_fab})" if qty_total_fab else "🛒 Carrito"
 st.markdown(
     f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
+    unsafe_allow_html=True,
+)
+
+# Añadir el texto "Abrir Carrito" debajo de la flecha
+st.markdown(
+    """
+<div class="custom-sidebar-text">Abrir Carrito</div>
+""",
     unsafe_allow_html=True,
 )
 
