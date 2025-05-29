@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
 from pathlib import Path
-from PIL import Image
-import io, urllib.parse, requests, tempfile, math, unicodedata
+import unicodedata
+import requests
+import tempfile
 
 # ------------------------------------------------------------------ #
 #  Configuración general
@@ -161,7 +162,6 @@ def load_products(xls_path: str) -> pd.DataFrame:
         rows.append({"fila_excel": idx, "codigo": str(codigo), "detalle": str(detalle), "precio": precio})
     df = pd.DataFrame(rows)
     df["img_bytes"] = df["fila_excel"].map(img_map)
-    # Columnas normalizadas para búsqueda
     df["codigo_norm"]  = df["codigo"].apply(quitar_acentos)
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
@@ -185,8 +185,7 @@ with col_linea:
 
 with col_ver_carrito:
     if st.button("Ver carrito", key="ver_carrito_btn"):
-        st.sidebar.expander("Carrito").button("Cerrar carrito")  # Para forzar abrir sidebar
-        # Si usás st.sidebar, lo podés abrir con el sidebar_state en set_page_config o controlar acá.
+        st.sidebar.expander("Carrito").button("Cerrar carrito")
 
 with col_search:
     buscar = st.text_input("Buscar en productos:")
@@ -213,10 +212,9 @@ for _, row in df_filtrado.iterrows():
 with st.sidebar:
     st.title("🛒 Carrito de compras")
     st.write("Aquí se mostrarán los productos agregados al carrito.")
-    # Código para mostrar carrito real
 
 # ------------------------------------------------------------------ #
-#  FAB móvil (botón flotante) ya lo tenés definido en CSS y HTML
+#  FAB móvil (botón flotante)
 # ------------------------------------------------------------------ #
 st.markdown(
     """
@@ -226,5 +224,4 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 
