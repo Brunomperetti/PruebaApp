@@ -75,9 +75,11 @@ FILE_IDS = {
 if "carrito" not in st.session_state:
     st.session_state["carrito"] = {}
 
-carrito = st.session_state["carrito"]
+if "recargar" not in st.session_state:
+    st.session_state["recargar"] = False
 
 st.sidebar.title("🛒 Carrito de Compras")
+carrito = st.session_state["carrito"]
 
 if carrito:
     total = 0
@@ -87,7 +89,6 @@ if carrito:
     st.sidebar.markdown(f"**Total: ${total:,.2f}**")
     if st.sidebar.button("Vaciar carrito"):
         st.session_state["carrito"] = {}
-        st.experimental_rerun()
 else:
     st.sidebar.write("El carrito está vacío")
 
@@ -132,6 +133,11 @@ df_pagina = df.iloc[start_idx:end_idx]
 def cambiar_pagina(nueva_pagina):
     st.session_state["pagina_actual"] = nueva_pagina
 
+# Esta línea es importante para evitar el error con st.experimental_rerun
+if st.session_state.get("recargar", False):
+    st.session_state["recargar"] = False
+    st.experimental_rerun()
+
 for idx, row in df_pagina.iterrows():
     cols = st.columns([1, 5, 2, 2])
     with cols[0]:
@@ -157,6 +163,7 @@ for idx, row in df_pagina.iterrows():
 
             cantidad = st.number_input("Cantidad", min_value=1, step=1, key=cantidad_key)
             agregar = st.form_submit_button("Agregar al carrito")
+
             if agregar:
                 cod = row['codigo']
                 if cod in carrito:
@@ -168,7 +175,7 @@ for idx, row in df_pagina.iterrows():
                         "cantidad": cantidad,
                     }
                 st.success(f"Agregaste {cantidad} x {row['detalle']} al carrito")
-                st.experimental_rerun()
+                st.session_state["recargar"] = True
 
 col_ant, col_info, col_sig = st.columns([1, 3, 1])
 with col_ant:
@@ -181,6 +188,5 @@ with col_sig:
         cambiar_pagina(pagina_actual + 1)
 
 st.session_state["pagina_actual"] = pagina_actual
-
 
 
