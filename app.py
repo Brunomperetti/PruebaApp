@@ -1,4 +1,3 @@
-import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
 from pathlib import Path
@@ -17,11 +16,12 @@ st.set_page_config(
 )
 
 # ------------------------------------------------------------------ #
-#  CSS global
+#  CSS global (oculta logos, estilos, FAB, botón cerrar carrito)
 # ------------------------------------------------------------------ #
 st.markdown(
     """
 <style>
+/* --- Ocultar menús / logos --- */
 #MainMenu, footer, header {visibility: hidden;}
 .viewerBadge_container__1QSob,
 .viewerBadge_container__rGiy7,
@@ -29,21 +29,33 @@ a[href="https://streamlit.io"],
 div[class^="viewerBadge_container"],
 .stDeployButton {display:none!important;}
 
+/* Ajuste top padding */
 .block-container {padding-top:1rem;}
 
+/* --- Nuevas reglas para móvil --- */
 @media(max-width:768px){
+  /* Paginación móvil - flechas juntas */
   .pagination-mobile{display:flex;justify-content:center;gap:16px;margin:20px 0;}
   .pagination-mobile button{background:#f0f2f6;border:none;border-radius:6px;
     padding:8px 16px;cursor:pointer;transition:.3s;font-size:18px;}
   .pagination-mobile button:hover{background:#e0e2e6;}
   .pagination-mobile button:disabled{opacity:.5;cursor:not-allowed;}
+  
+  /* Ocultar paginación normal en móvil */
   .pagination{display:none;}
+  
+  /* Mostrar paginación móvil */
   .mobile-pager{display:block!important;}
+  
+  /* Reducir productos por página en móvil */
   .mobile-items-per-page{display:block!important;}
 }
+
+/* Ocultar paginación móvil en desktop */
 .mobile-pager{display:none;}
 .mobile-items-per-page{display:none;}
 
+/* --- FAB carrito (solo mobile) --- */
 .carrito-fab{
   position:fixed;bottom:16px;right:16px;
   background:#f63366;color:#fff;
@@ -52,8 +64,10 @@ div[class^="viewerBadge_container"],
   z-index:99999;cursor:pointer;transition:transform .15s;
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
-.carrito-fab:hover{transform:scale(1.06);} 
+.carrito-fab:hover{transform:scale(1.06);}
+@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet */
 
+/* --- Productos --- */
 .product-card{border:1px solid #e0e0e0;border-radius:12px;
   padding:16px;height:100%;transition:box-shadow .3s;
   display:flex;flex-direction:column;}
@@ -65,6 +79,7 @@ div[class^="viewerBadge_container"],
 .product-price{font-size:18px;font-weight:700;color:#f63366;margin-bottom:12px;}
 .stNumberInput>div,.stNumberInput input{width:100%;}
 
+/* --- Paginación --- */
 .pagination{display:flex;justify-content:center;margin:20px 0;gap:8px;}
 .pagination button{background:#f0f2f6;border:none;border-radius:6px;
   padding:8px 12px;cursor:pointer;transition:.3s;}
@@ -72,26 +87,18 @@ div[class^="viewerBadge_container"],
 .pagination button.active{background:#f63366;color:#fff;}
 .pagination button:disabled{opacity:.5;cursor:not-allowed;}
 
+/* --- Sidebar (carrito) --- */
 [data-testid="stSidebar"]{background:#f8f9fa;padding:16px;position:relative;}
-.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:20px;font-weight:700;}
+.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
 .cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
 .cart-item:last-child{border-bottom:none;}
 .cart-total{font-weight:700;font-size:18px;margin:16px 0;color:#f63366;}
+.close-sidebar{position:absolute;top:10px;right:14px;font-size:22px;
+  cursor:pointer;color:#666;user-select:none;}
+.close-sidebar:hover{color:#000;}
 .whatsapp-btn{background:#25D366!important;color:#fff!important;width:100%;margin:8px 0;}
 .clear-btn{background:#f8f9fa!important;color:#f63366!important;
   border:1px solid #f63366!important;width:100%;margin:8px 0;}
-
-button[aria-label^="Toggle sidebar"],
-button[title^="Expand sidebar"],
-button[title^="Collapse sidebar"]{
-  font-size:16px!important;
-}
-button[aria-label^="Toggle sidebar"]::after,
-button[title^="Expand sidebar"]::after,
-button[title^="Collapse sidebar"]::after{
-  content:"  🛒 Carrito";
-  font-weight:700;
-}
 </style>
 """,
     unsafe_allow_html=True,
@@ -105,15 +112,6 @@ def quitar_acentos(texto: str) -> str:
         c for c in unicodedata.normalize("NFKD", str(texto))
         if not unicodedata.combining(c)
     ).lower()
-
-# Carrito (dict con código y cantidad)
-if "carrito" not in st.session_state:
-    st.session_state["carrito"] = {}
-
-def agregar_al_carrito(codigo):
-    carrito = st.session_state["carrito"]
-    carrito[codigo] = carrito.get(codigo, 0) + 1
-    st.session_state["carrito"] = carrito
 
 # ------------------------------------------------------------------ #
 #  Descarga del Excel (cacheado)
@@ -137,13 +135,15 @@ def load_products(xls_path: str) -> pd.DataFrame:
     img_map = {img.anchor._from.row + 1: img._data() for img in ws._images if hasattr(img, "_data")}
     rows = []
     for idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-        if not row[1]: break
+        if not row[1]:   # columna B vacía => fin
+            break
         codigo, detalle, precio = row[1], row[2], row[3]
         precio = 0 if precio is None else float(str(precio).replace("$", "").replace(",", ""))
         rows.append({"fila_excel": idx, "codigo": str(codigo), "detalle": str(detalle), "precio": precio})
     df = pd.DataFrame(rows)
     df["img_bytes"] = df["fila_excel"].map(img_map)
-    df["codigo_norm"] = df["codigo"].apply(quitar_acentos)
+    # Columnas normalizadas para búsqueda
+    df["codigo_norm"]  = df["codigo"].apply(quitar_acentos)
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
 
@@ -181,57 +181,210 @@ else:
     df = df_base.copy()
 
 # ------------------------------------------------------------------ #
-#  Paginación (versión simplificada)
+#  Paginación
 # ------------------------------------------------------------------ #
-# Elegir cuántos ítems mostrar por página desde la barra lateral
-ITEMS_PER_PAGE = st.sidebar.selectbox("Productos por página", [10, 15, 30, 45], index=1)
+# Detectar si es móvil
+st.markdown(
+    """
+<script>
+const isMobile = window.matchMedia('(max-width: 768px)').matches;
+window.parent.document.getElementById('is_mobile_detector').value = isMobile;
+</script>
+<input type="hidden" id="is_mobile_detector">
+""",
+    unsafe_allow_html=True,
+)
 
-# Calcular total de páginas
+# Items por página diferente en móvil
+ITEMS_PER_PAGE = 10 if st.session_state.get("is_mobile_detector", False) else 45
 total_pages = max(1, math.ceil(len(df) / ITEMS_PER_PAGE))
-
-# Guardar el estado de la página actual
 page_key = f"current_page_{linea}"
 current_page = min(st.session_state.get(page_key, 1), total_pages)
 
-# Función para cambiar de página
 def change_page(n: int):
     st.session_state[page_key] = n
 
-# Botones de navegación
-col1, col2, col3 = st.columns([1, 6, 1])
-with col1:
-    st.button("◀", on_click=change_page, args=(max(1, current_page - 1),), disabled=(current_page <= 1))
-with col3:
-    st.button("▶", on_click=change_page, args=(min(total_pages, current_page + 1),), disabled=(current_page >= total_pages))
-
-
-# Mostrar productos actuales
-start = (current_page - 1) * ITEMS_PER_PAGE
-end = start + ITEMS_PER_PAGE
-for _, row in df.iloc[start:end].iterrows():
-    st.markdown(f"**{row['codigo']}** — {row['detalle']} — ${row['precio']:.2f}")
-    if st.button(f"Agregar al carrito: {row['codigo']}", key=row['codigo']):
-        agregar_al_carrito(row['codigo'])
-
-# Botón flotante
-st.markdown("""
-<div class="carrito-fab" onclick="window.parent.document.querySelector('button[title^=\"Expand\"],button[aria-label^=\"Toggle\"]').click()">
-  🛒 Carrito ({})
+def pager(position: str):
+    # Versión móvil (flechas juntas)
+    st.markdown(
+        f"""
+<div class="mobile-pager">
+  <div class="pagination-mobile">
+    <button onclick="window.dispatchEvent(new Event('prev_page_{position}'))" 
+            {'disabled' if current_page == 1 else ''}>◀</button>
+    <span style="padding:8px 12px;font-weight:bold;">Pág. {current_page}/{total_pages}</span>
+    <button onclick="window.dispatchEvent(new Event('next_page_{position}'))" 
+            {'disabled' if current_page == total_pages else ''}>▶</button>
+  </div>
 </div>
-""".format(sum(st.session_state['carrito'].values())), unsafe_allow_html=True)
+""",
+        unsafe_allow_html=True,
+    )
+    
+    # Versión desktop (original)
+    col1, col2, col3 = st.columns([1, 6, 1])
+    with col1:
+        st.button("◀", on_click=change_page, args=(current_page - 1,), 
+                disabled=current_page == 1, key=f"{position}_prev")
+    with col2:
+        st.write(f"Página {current_page} de {total_pages}")
+    with col3:
+        st.button("▶", on_click=change_page, args=(current_page + 1,),
+                disabled=current_page == total_pages, key=f"{position}_next")
 
-# Sidebar del carrito
+# Manejar eventos de paginación móvil
+st.markdown(
+    """
+<script>
+// Manejar eventos de los botones móviles
+document.addEventListener('prev_page_top', () => {
+  const current = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[1]);
+  if(current > 1) {
+    window.parent.document.querySelector('button[data-testid="baseButton-secondary"][aria-label="◀"]').click();
+  }
+});
+document.addEventListener('next_page_top', () => {
+  const current = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[1]);
+  const total = parseInt(window.parent.document.querySelector('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div').textContent.split(' ')[3]);
+  if(current < total) {
+    window.parent.document.querySelector('button[data-testid="baseButton-secondary"][aria-label="▶"]').click();
+  }
+});
+// Para el paginador inferior
+document.addEventListener('prev_page_bottom', () => {
+  const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
+  if(current > 1) {
+    window.parent.document.querySelectorAll('button[data-testid="baseButton-secondary"][aria-label="◀"]')[1].click();
+  }
+});
+document.addEventListener('next_page_bottom', () => {
+  const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
+  const total = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[3]);
+  if(current < total) {
+    window.parent.document.querySelectorAll('button[data-testid="baseButton-secondary"][aria-label="▶"]')[1].click();
+  }
+});
+</script>
+""",
+    unsafe_allow_html=True,
+)
+
+if total_pages > 1:
+    pager("top")
+
+# ------------------------------------------------------------------ #
+#  Mostrar productos (grilla 3xN)
+# ------------------------------------------------------------------ #
+start, end = (current_page - 1) * ITEMS_PER_PAGE, current_page * ITEMS_PER_PAGE
+paginated_df = df.iloc[start:end]
+
+for i in range(0, len(paginated_df), 3):
+    cols = st.columns(3)
+    for j in range(3):
+        if i + j >= len(paginated_df):
+            continue
+        prod = paginated_df.iloc[i + j]
+        with cols[j]:
+            st.markdown('<div class="product-card">', unsafe_allow_html=True)
+
+            # Imagen
+            if pd.notna(prod.img_bytes):
+                st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True)
+            else:
+                st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
+
+            # Texto
+            st.markdown(f'<div class="product-title">{prod.detalle}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="product-code">Código: {prod.codigo}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
+
+            # Selector cantidad
+            qty_key = f"{linea}-{prod.codigo}"
+            qty = st.number_input("Cantidad", min_value=0, step=1,
+                                  key=qty_key,
+                                  value=st.session_state.get("cart", {}).get(prod.codigo, {}).get("qty", 0))
+
+            # Carrito en sesión
+            cart = st.session_state.setdefault("cart", {})
+            if qty:
+                cart[prod.codigo] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty}
+            elif prod.codigo in cart:
+                del cart[prod.codigo]
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+# Paginador inferior
+if total_pages > 1:
+    pager("bottom")
+
+# ------------------------------------------------------------------ #
+#  Sidebar ➜ Carrito
+# ------------------------------------------------------------------ #
 with st.sidebar:
-    st.markdown("<div class='sidebar-title'>🛒 Tu Carrito</div>", unsafe_allow_html=True)
-    total = 0
-    for codigo, cantidad in st.session_state['carrito'].items():
-        producto = df_base[df_base['codigo'] == str(codigo)]
-        if not producto.empty:
-            nombre = producto["detalle"].values[0]
-            precio = producto["precio"].values[0]
-            subtotal = cantidad * precio
-            total += subtotal
-            st.markdown(f"<div class='cart-item'>{cantidad} x <b>{codigo}</b> — {nombre} (${precio:.2f} c/u) = <b>${subtotal:.2f}</b></div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='cart-total'>Total: ${total:.2f}</div>", unsafe_allow_html=True)
+    # Botón cerrar
+    st.markdown('<div class="close-sidebar" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">✖</div>', unsafe_allow_html=True)
 
+    st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
+    st.markdown("---")
 
+    cart = st.session_state["cart"]
+    if cart:
+        for cod, it in cart.items():
+            st.markdown(
+                f"""
+<div class="cart-item">
+  <div><strong>{it['detalle']}</strong></div>
+  <div>Código: {cod}</div>
+  <div>Cantidad: {it['qty']}</div>
+  <div>Subtotal: ${it['precio'] * it['qty']:,.2f}</div>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
+        total = sum(it["precio"] * it["qty"] for it in cart.values())
+        st.markdown(f'<div class="cart-total">Total: ${total:,.2f}</div>', unsafe_allow_html=True)
+
+        # Enlace WhatsApp
+        msg_lines = [f"- {it['detalle']} (Código {cod}) x {it['qty']}" for cod, it in cart.items()]
+        msg = "Hola! Quiero hacer un pedido de los siguientes productos:\n" + "\n".join(msg_lines) + f"\n\nTotal: ${total:,.2f}"
+        link = f"https://wa.me/5493516434765?text={urllib.parse.quote(msg)}"
+
+        st.link_button("📲 Confirmar pedido por WhatsApp", link, icon="💬")
+
+        if st.button("🗑️ Vaciar carrito", key="clear_btn"):
+            cart.clear()
+            # Reiniciar todos los number_input
+            for k in list(st.session_state.keys()):
+                if k.startswith(f"{linea}-"):
+                    st.session_state[k] = 0
+            st.experimental_rerun()
+    else:
+        st.write("Todavía no agregaste productos.")
+
+# ------------------------------------------------------------------ #
+#  FAB móvil
+# ------------------------------------------------------------------ #
+qty_total = sum(it["qty"] for it in st.session_state["cart"].values())
+fab_label = f"🛒 ({qty_total})" if qty_total else "🛒 Ver carrito"
+st.markdown(
+    f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
+    unsafe_allow_html=True,
+)
+
+# ------------------------------------------------------------------ #
+#  JS global: alternar sidebar
+# ------------------------------------------------------------------ #
+st.markdown(
+    """
+<script>
+window.addEventListener("toggleSidebar", () => {
+  const btn = window.parent.document.querySelector('button[aria-label^="Toggle sidebar"]') ||
+              window.parent.document.querySelector('button[title^="Expand sidebar"]') ||
+              window.parent.document.querySelector('button[title^="Collapse sidebar"]');
+  if (btn) btn.click();
+});
+</script>
+""",
+    unsafe_allow_html=True,
+)
