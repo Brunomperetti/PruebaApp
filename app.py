@@ -75,8 +75,9 @@ FILE_IDS = {
 if "carrito" not in st.session_state:
     st.session_state["carrito"] = {}
 
-st.sidebar.title("🛒 Carrito de Compras")
 carrito = st.session_state["carrito"]
+
+st.sidebar.title("🛒 Carrito de Compras")
 
 if carrito:
     total = 0
@@ -130,9 +131,7 @@ df_pagina = df.iloc[start_idx:end_idx]
 
 def cambiar_pagina(nueva_pagina):
     st.session_state["pagina_actual"] = nueva_pagina
-    st.experimental_rerun()
 
-# Productos con formulario para cantidad y agregar
 for idx, row in df_pagina.iterrows():
     cols = st.columns([1, 5, 2, 2])
     with cols[0]:
@@ -151,8 +150,12 @@ for idx, row in df_pagina.iterrows():
         st.markdown(f"${row['precio']:,.2f}")
     with cols[3]:
         form_key = f"form_{row['codigo']}"
-        with st.form(form_key, clear_on_submit=True):
-            cantidad = st.number_input("Cantidad", min_value=1, step=1, key=f"cant_{row['codigo']}")
+        with st.form(form_key):
+            cantidad_key = f"cant_{row['codigo']}"
+            if cantidad_key not in st.session_state:
+                st.session_state[cantidad_key] = 1
+
+            cantidad = st.number_input("Cantidad", min_value=1, step=1, key=cantidad_key)
             agregar = st.form_submit_button("Agregar al carrito")
             if agregar:
                 cod = row['codigo']
@@ -164,7 +167,6 @@ for idx, row in df_pagina.iterrows():
                         "precio": row["precio"],
                         "cantidad": cantidad,
                     }
-                st.session_state["carrito"] = carrito
                 st.success(f"Agregaste {cantidad} x {row['detalle']} al carrito")
                 st.experimental_rerun()
 
@@ -179,5 +181,6 @@ with col_sig:
         cambiar_pagina(pagina_actual + 1)
 
 st.session_state["pagina_actual"] = pagina_actual
+
 
 
