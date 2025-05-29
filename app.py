@@ -14,7 +14,7 @@ st.set_page_config(
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
-# CSS global
+# CSS global para personalizar el botón de la barra lateral
 st.markdown(
     """
 <style>
@@ -28,6 +28,34 @@ div[class^="viewerBadge_container"],
 
 /* Ajuste top padding */
 .block-container {padding-top:1rem;}
+
+/* Personalizar el botón de la barra lateral */
+button[data-testid="stSidebarNavToggler"] {
+    background: #f63366;
+    color: white;
+    border: none;
+    height: 3rem;
+    width: 6rem;
+    border-radius: 0.5rem;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 100;
+}
+button[data-testid="stSidebarNavToggler"]:hover {
+    background: #e02b5a;
+}
+
+/* Ocultar la flecha y mostrar texto */
+button[data-testid="stSidebarNavToggler"] > div {
+    visibility: hidden;
+    position: absolute;
+}
+button[data-testid="stSidebarNavToggler"]:after {
+    content: "Carrito";
+    visibility: visible;
+    position: relative;
+}
 
 /* Nuevas reglas para móvil */
 @media(max-width:768px){
@@ -91,10 +119,13 @@ div[class^="viewerBadge_container"],
 
 /* Sidebar (carrito) */
 [data-testid="stSidebar"]{background:#f8f9fa;padding:16px;position:relative;}
-.sidebar-title{display:flex;align-items:center;justify-content: space-between;gap:8px;margin-bottom:16px;}
+.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
 .cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
 .cart-item:last-child{border-bottom:none;}
 .cart-total{font-weight:700;font-size:18px;margin:16px 0;color:#f63366;}
+.close-sidebar{position:absolute;top:10px;right:14px;font-size:22px;
+  cursor:pointer;color:#666;user-select:none;}
+.close-sidebar:hover{color:#000;}
 .whatsapp-btn{background:#25D366!important;color:#fff!important;width:100%;margin:8px 0;}
 .clear-btn{background:#f8f9fa!important;color:#f63366!important;
   border:1px solid #f63366!important;width:100%;margin:8px 0;}
@@ -128,14 +159,15 @@ def load_products(xls_path: str) -> pd.DataFrame:
     img_map = {img.anchor._from.row + 1: img._data() for img in ws._images if hasattr(img, "_data")}
     rows = []
     for idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-        if not row[1]:
+        if not row[1]:  # columna B vacía => fin
             break
         codigo, detalle, precio = row[1], row[2], row[3]
         precio = 0 if precio is None else float(str(precio).replace("$", "").replace(",", ""))
         rows.append({"fila_excel": idx, "codigo": str(codigo), "detalle": str(detalle), "precio": precio})
     df = pd.DataFrame(rows)
     df["img_bytes"] = df["fila_excel"].map(img_map)
-    df["codigo_norm"] = df["codigo"].apply(quitar_acentos)
+    # Columnas normalizadas para búsqueda
+    df["codigo_norm"]  = df["codigo"].apply(quitar_acentos)
     df["detalle_norm"] = df["detalle"].apply(quitar_acentos)
     return df
 
@@ -321,7 +353,7 @@ if total_pages > 1:
 
 # Sidebar ➜ Carrito
 with st.sidebar:
-    st.markdown('<div class="sidebar-title"><button onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))" style="background: #f63366; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-size: 16px;">Carrito</button></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
     st.markdown("---")
 
     cart = st.session_state.get("cart", {})
@@ -390,5 +422,4 @@ window.addEventListener("toggleSidebar", () => {
 """,
     unsafe_allow_html=True,
 )
-
 
