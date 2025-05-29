@@ -280,12 +280,12 @@ document.addEventListener('streamlit_page_change', function(event) {{
     if (direction === 'prev') {{
         buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("◀ Anterior")')[0];
         if (!buttonToClick) {{
-            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*="{position}_prev_desktop"]')[0];
+            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*=\'{position}_prev_desktop\']')[0];
         }}
     }} else if (direction === 'next') {{
         buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"] > div > p:contains("Siguiente ▶")')[0];
         if (!buttonToClick) {{
-            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*="{position}_next_desktop"]')[0];
+            buttonToClick = window.parent.document.querySelectorAll('button[data-testid="stButton"][key*=\'{position}_next_desktop\']')[0];
         }}
     }}
 
