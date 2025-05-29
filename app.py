@@ -37,11 +37,20 @@ button[data-testid="stSidebarNavToggler"] {
     height: auto;
     width: auto;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     z-index: 100;
+}
+
+/* Texto al lado de la flecha */
+.custom-sidebar-text {
+    position: absolute;
+    top: 10px;
+    left: 40px;
+    font-size: 1rem;
+    color: #f63366;
 }
 
 /* Nuevas reglas para móvil */
@@ -375,7 +384,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Añadir el texto "Ver Carrito" debajo de la flecha
+# Añadir el texto "Ver Carrito" al lado de la flecha
 st.markdown(
     """
 <div style="position: absolute; top: 10px; left: 40px; font-size: 1rem; color: #f63366;">Ver Carrito</div>
@@ -402,6 +411,7 @@ window.addEventListener("toggleSidebar", () => {
 """,
     unsafe_allow_html=True,
 )
+
 
 
 
