@@ -56,7 +56,7 @@ div[class^="viewerBadge_container"],
 .mobile-pager{display:none;}
 .mobile-items-per-page{display:none;}
 
-/* --- FAB carrito (solo mobile) --- */
+/* --- FAB carrito (visible en todas las resoluciones) --- */
 .carrito-fab{
   position:fixed;bottom:16px;right:16px;
   background:#f63366;color:#fff;
@@ -65,8 +65,8 @@ div[class^="viewerBadge_container"],
   z-index:99999;cursor:pointer;transition:transform .15s;
   display:flex;align-items:center;justify-content:center;gap:8px;
 }
-.carrito-fab:hover{transform:scale(1.06);}
-@media(min-width:769px){.carrito-fab{display:none;}}/* solo cel/tablet */
+.carrito-fab:hover{transform:scale(1.06);} 
+/* quitamos la regla que ocultaba en desktop */
 
 /* --- Productos --- */
 .product-card{border:1px solid #e0e0e0;border-radius:12px;
@@ -89,74 +89,27 @@ div[class^="viewerBadge_container"],
 .pagination button:disabled{opacity:.5;cursor:not-allowed;}
 
 /* --- Sidebar (carrito) --- */
-[data-testid="stSidebar"] {
-    background:#f8f9fa;
-    padding:16px;
-    position:relative;
-    min-width:300px!important;
-    max-width:350px!important;
-}
-[data-testid="stSidebarNav"] {
-    margin-top: 50px;
-}
-[data-testid="stSidebarNavItems"] {
-    max-height: none!important;
-    padding-top: 0!important;
-}
-[data-testid="collapsedControl"] {
-    background: #f63366;
-    color: white;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 999;
-    box-shadow: 0 4px 12px rgba(0,0,0,.2);
-    transition: all 0.3s ease;
-}
-[data-testid="collapsedControl"]:hover {
-    background: #e62b5c;
-    transform: scale(1.05);
-}
-[data-testid="collapsedControl"]::after {
-    content: "🛒";
-    font-size: 24px;
-}
-[data-testid="collapsedControl"] svg {
-    display: none;
-}
-.cart-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: white;
-    color: #f63366;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid #f63366;
-}
-
-.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+[data-testid="stSidebar"]{background:#f8f9fa;padding:16px;position:relative;}
+.sidebar-title{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:20px;font-weight:700;}
 .cart-item{padding:12px 0;border-bottom:1px solid #e0e0e0;color:#333;}
 .cart-item:last-child{border-bottom:none;}
 .cart-total{font-weight:700;font-size:18px;margin:16px 0;color:#f63366;}
-.close-sidebar{position:absolute;top:10px;right:14px;font-size:22px;
-  cursor:pointer;color:#666;user-select:none;}
-.close-sidebar:hover{color:#000;}
 .whatsapp-btn{background:#25D366!important;color:#fff!important;width:100%;margin:8px 0;}
 .clear-btn{background:#f8f9fa!important;color:#f63366!important;
   border:1px solid #f63366!important;width:100%;margin:8px 0;}
+
+/* --- Botón default de Streamlit para abrir/cerrar sidebar --- */
+button[aria-label^="Toggle sidebar"],
+button[title^="Expand sidebar"],
+button[title^="Collapse sidebar"]{
+  font-size:16px!important;
+}
+button[aria-label^="Toggle sidebar"]::after,
+button[title^="Expand sidebar"]::after,
+button[title^="Collapse sidebar"]::after{
+  content:"  🛒 Carrito";
+  font-weight:700;
+}
 </style>
 """,
     unsafe_allow_html=True,
@@ -165,6 +118,7 @@ div[class^="viewerBadge_container"],
 # ------------------------------------------------------------------ #
 #  Utilidades
 # ------------------------------------------------------------------ #
+
 def quitar_acentos(texto: str) -> str:
     return "".join(
         c for c in unicodedata.normalize("NFKD", str(texto))
@@ -317,154 +271,4 @@ document.addEventListener('prev_page_bottom', () => {
 });
 document.addEventListener('next_page_bottom', () => {
   const current = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[1]);
-  const total = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(> div > div > div > div > div > button[aria-label="◀"]) + div > div')[1].textContent.split(' ')[3]);
-  if(current < total) {
-    window.parent.document.querySelectorAll('button[data-testid="baseButton-secondary"][aria-label="▶"]')[1].click();
-  }
-});
-</script>
-""",
-    unsafe_allow_html=True,
-)
-
-if total_pages > 1:
-    pager("top")
-
-# ------------------------------------------------------------------ #
-#  Mostrar productos (grilla 3xN)
-# ------------------------------------------------------------------ #
-start, end = (current_page - 1) * ITEMS_PER_PAGE, current_page * ITEMS_PER_PAGE
-paginated_df = df.iloc[start:end]
-
-for i in range(0, len(paginated_df), 3):
-    cols = st.columns(3)
-    for j in range(3):
-        if i + j >= len(paginated_df):
-            continue
-        prod = paginated_df.iloc[i + j]
-        with cols[j]:
-            st.markdown('<div class="product-card">', unsafe_allow_html=True)
-
-            # Imagen
-            if pd.notna(prod.img_bytes):
-                st.image(Image.open(io.BytesIO(prod.img_bytes)), use_container_width=True)
-            else:
-                st.image("https://via.placeholder.com/200x150?text=Sin+imagen", use_container_width=True)
-
-            # Texto
-            st.markdown(f'<div class="product-title">{prod.detalle}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="product-code">Código: {prod.codigo}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="product-price">${prod.precio:,.2f}</div>', unsafe_allow_html=True)
-
-            # Selector cantidad
-            qty_key = f"{linea}-{prod.codigo}"
-            qty = st.number_input("Cantidad", min_value=0, step=1,
-                                  key=qty_key,
-                                  value=st.session_state.get("cart", {}).get(prod.codigo, {}).get("qty", 0))
-
-            # Carrito en sesión
-            cart = st.session_state.setdefault("cart", {})
-            if qty:
-                cart[prod.codigo] = {"detalle": prod.detalle, "precio": prod.precio, "qty": qty}
-            elif prod.codigo in cart:
-                del cart[prod.codigo]
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-# Paginador inferior
-if total_pages > 1:
-    pager("bottom")
-
-# ------------------------------------------------------------------ #
-#  Sidebar ➜ Carrito
-# ------------------------------------------------------------------ #
-with st.sidebar:
-    # Botón cerrar
-    st.markdown('<div class="close-sidebar" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">✖</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-title"><h2>🛒 Carrito</h2></div>', unsafe_allow_html=True)
-    st.markdown("---")
-
-    cart = st.session_state["cart"]
-    if cart:
-        for cod, it in cart.items():
-            st.markdown(
-                f"""
-<div class="cart-item">
-  <div><strong>{it['detalle']}</strong></div>
-  <div>Código: {cod}</div>
-  <div>Cantidad: {it['qty']}</div>
-  <div>Subtotal: ${it['precio'] * it['qty']:,.2f}</div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-        total = sum(it["precio"] * it["qty"] for it in cart.values())
-        st.markdown(f'<div class="cart-total">Total: ${total:,.2f}</div>', unsafe_allow_html=True)
-
-        # Enlace WhatsApp
-        msg_lines = [f"- {it['detalle']} (Código {cod}) x {it['qty']}" for cod, it in cart.items()]
-        msg = "Hola! Quiero hacer un pedido de los siguientes productos:\n" + "\n".join(msg_lines) + f"\n\nTotal: ${total:,.2f}"
-        link = f"https://wa.me/5493516434765?text={urllib.parse.quote(msg)}"
-
-        st.link_button("📲 Confirmar pedido por WhatsApp", link, icon="💬")
-
-        if st.button("🗑️ Vaciar carrito", key="clear_btn"):
-            cart.clear()
-            # Reiniciar todos los number_input
-            for k in list(st.session_state.keys()):
-                if k.startswith(f"{linea}-"):
-                    st.session_state[k] = 0
-            st.experimental_rerun()
-    else:
-        st.write("Todavía no agregaste productos.")
-
-# ------------------------------------------------------------------ #
-#  FAB móvil
-# ------------------------------------------------------------------ #
-qty_total = sum(it["qty"] for it in st.session_state["cart"].values())
-fab_label = f"🛒 ({qty_total})" if qty_total else "🛒 Ver carrito"
-st.markdown(
-    f'<div class="carrito-fab" onclick="window.dispatchEvent(new Event(\'toggleSidebar\'))">{fab_label}</div>',
-    unsafe_allow_html=True,
-)
-
-# ------------------------------------------------------------------ #
-#  JS global: alternar sidebar + actualizar badge carrito
-# ------------------------------------------------------------------ #
-st.markdown(
-    f"""
-<script>
-// Actualizar badge del carrito
-function updateCartBadge() {{
-    const qty = {qty_total};
-    const badge = window.parent.document.querySelector('.cart-badge');
-    const control = window.parent.document.querySelector('[data-testid="collapsedControl"]');
-    
-    if (!badge && qty > 0) {{
-        const newBadge = window.parent.document.createElement('div');
-        newBadge.className = 'cart-badge';
-        newBadge.textContent = qty;
-        control.appendChild(newBadge);
-    }} else if (badge) {{
-        if (qty > 0) {{
-            badge.textContent = qty;
-        }} else {{
-            badge.remove();
-        }}
-    }}
-}}
-updateCartBadge();
-
-// Alternar sidebar
-window.addEventListener("toggleSidebar", () => {{
-  const btn = window.parent.document.querySelector('button[aria-label^="Toggle sidebar"]') ||
-              window.parent.document.querySelector('button[title^="Expand sidebar"]') ||
-              window.parent.document.querySelector('button[title^="Collapse sidebar"]');
-  if (btn) btn.click();
-}});
-</script>
-""",
-    unsafe_allow_html=True,
-)
+  const total = parseInt(window.parent.document.querySelectorAll('[data-testid="stMarkdownContainer"]:has(
