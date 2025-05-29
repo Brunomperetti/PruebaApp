@@ -32,37 +32,25 @@ div[class^="viewerBadge_container"],
 /* Personalizar el botón de la barra lateral */
 button[data-testid="stSidebarNavToggler"] {
     position: relative;
-    background: #f63366;
-    color: white;
+    background: transparent;
     border: none;
-    height: 3rem;
-    width: 10rem;
-    border-radius: 0.5rem;
+    height: auto;
+    width: auto;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 1rem;
     cursor: pointer;
     z-index: 100;
 }
 
-button[data-testid="stSidebarNavToggler"]::before {
+/* Texto debajo de la flecha */
+button[data-testid="stSidebarNavToggler"]::after {
     content: "Abrir Carrito";
     position: relative;
-    margin-right: 0.5rem;
-}
-
-/* Ocultar la flecha original y reemplazarla con una personalizada */
-button[data-testid="stSidebarNavToggler"] > div {
-    visibility: hidden;
-}
-
-button[data-testid="stSidebarNavToggler"]::after {
-    content: "▶";
-    visibility: visible;
-    position: relative;
+    top: 10px;
     font-size: 1rem;
-    margin-left: 0.5rem;
+    color: #f63366;
 }
 
 /* Nuevas reglas para móvil */
